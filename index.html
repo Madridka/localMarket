@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
-  <title>Рядом — вещи поблизости</title>
+  <title>Рядом — объявления в Томской области</title>
   <link rel="stylesheet" href="css/reset.css">
   <link rel="stylesheet" href="css/variables.css">
   <link rel="stylesheet" href="css/styles.css">
@@ -21,34 +21,47 @@
         <div class="filter-sidebar__heading"><h2>Фильтры</h2><button class="filter-close" id="filter-close" type="button" aria-label="Закрыть фильтры">×</button></div>
         <form id="filter-form">
           <div class="filter-section category-filter">
-            <h3>Категории</h3>
+            <h3>Категория</h3>
             <input id="filter-category" name="category" type="hidden" value="">
-            <label class="visually-hidden" for="category-search">Поиск категории</label>
-            <input id="category-search" class="category-filter__search" type="search" placeholder="Поиск категории" autocomplete="off">
-            <nav id="category-branch" class="category-branch" aria-label="Выбор категории"></nav>
+            <button id="category-open" class="category-filter__trigger" type="button" aria-haspopup="dialog" aria-controls="category-selector" aria-expanded="false"><span id="category-current" class="category-filter__value">Все категории</span><span id="category-action" class="category-filter__action">Выбрать</span></button>
           </div>
           <div class="filter-section"><span class="filter-label">Цена, ₽</span><div class="price-fields"><label class="visually-hidden" for="filter-min">Цена от</label><input id="filter-min" name="min" inputmode="numeric" type="number" min="0" placeholder="От"><label class="visually-hidden" for="filter-max">Цена до</label><input id="filter-max" name="max" inputmode="numeric" type="number" min="0" placeholder="До"></div></div>
           <fieldset class="filter-section"><legend>Состояние</legend><div id="condition-options" class="filter-options"></div></fieldset>
-          <fieldset class="filter-section"><legend>Расстояние</legend><div class="filter-options">
-            <label><input type="radio" name="radius" value="5"> До 5 км</label>
-            <label><input type="radio" name="radius" value="10"> До 10 км</label>
-            <label><input type="radio" name="radius" value="30"> До 30 км</label>
-            <label><input type="radio" name="radius" value="100"> До 100 км</label>
-            <label><input type="radio" name="radius" value="" checked> Вся область</label>
-          </div></fieldset>
-          <div class="filter-section"><label for="filter-city">Город</label><select id="filter-city" name="city"><option value="">Все города</option></select></div>
+          <div class="filter-section location-filter">
+            <h3>Местоположение</h3>
+            <div class="location-city"><label for="filter-city">Город</label><select id="filter-city" name="city"></select></div>
+            <fieldset class="location-origin"><legend>Откуда считать расстояние</legend><div class="filter-options">
+              <label><input type="radio" name="origin" value="center" checked> <span id="center-origin-label">Центр Томска</span></label>
+              <label><input type="radio" name="origin" value="user"> Моё местоположение</label>
+            </div></fieldset>
+            <fieldset class="location-radius"><legend>Область поиска</legend><div class="filter-options">
+              <label><input type="radio" name="radius" value="5"> До 5 км</label>
+              <label><input type="radio" name="radius" value="10"> До 10 км</label>
+              <label><input type="radio" name="radius" value="30"> До 30 км</label>
+              <label><input type="radio" name="radius" value="100"> До 100 км</label>
+              <label><input type="radio" name="radius" value="region" checked> Вся Томская область</label>
+            </div></fieldset>
+            <p class="location-distance-note" id="distance-origin-note" hidden></p>
+          </div>
           <div class="filter-actions"><button class="button button--primary" type="submit">Показать результаты</button><button class="button button--text" id="reset-filters" type="button">Сбросить фильтры</button></div>
         </form>
       </aside>
       <section class="catalog-content" aria-labelledby="catalog-title">
-        <div class="catalog-heading"><div><nav id="catalog-breadcrumbs" class="breadcrumb catalog-breadcrumbs" aria-label="Путь категории"></nav><p class="eyebrow">Томск и область</p><h1 id="catalog-title">Рядом с вами</h1><p class="catalog-intro">Вещи, которые можно забрать поблизости</p></div></div>
-        <div class="catalog-toolbar"><div class="catalog-toolbar__left"><button class="filter-toggle button button--secondary" id="filter-toggle" type="button" aria-expanded="false" aria-controls="filter-sidebar">Фильтры</button><span id="catalog-count" class="catalog-count" aria-live="polite"></span></div><div class="catalog-toolbar__right"><button type="button" class="save-search-button" id="save-search">♡ <span>Сохранить поиск</span></button><label for="sort-select">Сортировать:</label><select class="sort-select" id="sort-select"><option value="recommended">Рекомендуемые</option><option value="distance">Сначала ближайшие</option><option value="newest">Сначала новые</option><option value="price-asc">Сначала дешевле</option><option value="price-desc">Сначала дороже</option></select></div></div>
+        <div class="catalog-heading"><div><nav id="catalog-breadcrumbs" class="breadcrumb catalog-breadcrumbs" aria-label="Путь категории"></nav><h1 id="catalog-title">Объявления в Томской области</h1><p id="catalog-count" class="catalog-count" aria-live="polite"></p><p id="catalog-intro" class="catalog-intro"></p></div></div>
+        <div class="catalog-toolbar"><div class="catalog-toolbar__left"><button class="filter-toggle button button--secondary" id="filter-toggle" type="button" aria-expanded="false" aria-controls="filter-sidebar">Фильтры</button></div><div class="catalog-toolbar__right"><button type="button" class="save-search-button" id="save-search">♡ <span>Сохранить поиск</span></button><label for="sort-select">Сортировать:</label><select class="sort-select" id="sort-select"><option value="recommended">Рекомендуемые</option><option value="distance">Ближе к центру</option><option value="newest">Сначала новые</option><option value="price-asc">Сначала дешевле</option><option value="price-desc">Сначала дороже</option></select></div></div>
         <div id="listing-grid" class="listing-grid" aria-live="polite"></div>
       </section>
     </div>
   </main>
+  <div id="category-selector-backdrop" class="category-selector-backdrop" hidden></div>
+  <section id="category-selector" class="category-selector" role="dialog" aria-modal="true" aria-labelledby="category-selector-title" hidden>
+    <div class="category-selector__heading"><h2 id="category-selector-title">Категории</h2><button id="category-selector-close" class="category-selector__close" type="button" aria-label="Закрыть выбор категории">×</button></div>
+    <label class="visually-hidden" for="category-search">Поиск категории</label>
+    <input id="category-search" class="category-filter__search" type="search" placeholder="Поиск категории" autocomplete="off">
+    <nav id="category-branch" class="category-branch" aria-label="Выбор категории"></nav>
+  </section>
   <div id="toast-root" class="toast-container"></div>
   <nav id="mobile-nav" aria-label="Мобильная навигация"></nav>
-  <script type="module" src="js/catalog.js"></script>
+  <script defer src="js/app.bundle.js"></script>
 </body>
 </html>

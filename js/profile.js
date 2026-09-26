@@ -22,7 +22,7 @@ if (!seller) {
     <div class="empty-state profile-not-found">
       <div class="empty-state__icon" aria-hidden="true">◌</div>
       <h1>Профиль не найден</h1>
-      <p>Возможно, ссылка устарела. Посмотрите другие объявления поблизости.</p>
+      <p>Возможно, ссылка устарела. Посмотрите другие объявления в Томской области.</p>
       <a class="button button--primary" href="index.html">Перейти в каталог</a>
     </div>`;
 } else {
@@ -51,7 +51,7 @@ function renderProfile() {
     <nav class="breadcrumbs" aria-label="Навигация"><a href="index.html">Главная</a><span aria-hidden="true">/</span><span>${isOwnProfile ? 'Мой профиль' : name}</span></nav>
     <div class="page-heading profile-page__heading">
       <div>
-        <p class="eyebrow">${isOwnProfile ? 'Личная страница' : 'Человек рядом'}</p>
+        <p class="eyebrow">${isOwnProfile ? 'Личная страница' : 'Продавец'}</p>
         <h1>${isOwnProfile ? 'Мой профиль' : 'Профиль продавца'}</h1>
       </div>
     </div>
@@ -75,7 +75,7 @@ function renderProfile() {
       <div class="section-heading"><div><p class="eyebrow">В продаже</p><h2 id="profile-listings-title">${isOwnProfile ? 'Мои объявления' : 'Объявления продавца'} <span class="section-count">${sellerListings.length}</span></h2></div></div>
       ${sellerListings.length
         ? `<div class="listing-grid">${sellerListings.map(listingCard).join('')}</div>`
-        : `<div class="empty-state"><div class="empty-state__icon" aria-hidden="true">＋</div><h3>${isOwnProfile ? 'Пока нет объявлений' : 'Сейчас нет объявлений'}</h3><p>${isOwnProfile ? 'Добавьте первую вещь — покупатели рядом уже ищут её.' : 'Загляните позже или посмотрите другие предложения рядом.'}</p><a class="button button--primary" href="${isOwnProfile ? 'create.html' : 'index.html'}">${isOwnProfile ? 'Разместить объявление' : 'Смотреть объявления'}</a></div>`}
+        : `<div class="empty-state"><div class="empty-state__icon" aria-hidden="true">＋</div><h3>${isOwnProfile ? 'Пока нет объявлений' : 'Сейчас нет объявлений'}</h3><p>${isOwnProfile ? 'Добавьте первую вещь — покупатели в области увидят её.' : 'Загляните позже или посмотрите другие предложения в области.'}</p><a class="button button--primary" href="${isOwnProfile ? 'create.html' : 'index.html'}">${isOwnProfile ? 'Разместить объявление' : 'Смотреть объявления'}</a></div>`}
     </section>
 
     <section class="profile-reviews" aria-labelledby="profile-reviews-title">

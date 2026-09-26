@@ -963,3 +963,234 @@ shrubs|Кустарники`)),
 planters|Кашпо
 flower-boxes|Ящики для цветов`)),
   ]),
+  node('construction', 'Строительство и ремонт', [
+    node('tools', 'Инструменты', [
+      ...leaves('tool-', `screwdrivers|Шуруповёрты
+drills|Дрели
+hammer-drills|Перфораторы
+grinders|Болгарки
+jigsaws|Лобзики
+circular-saws|Циркулярные пилы
+sanders|Шлифмашины
+routers|Фрезеры
+impact-wrenches|Гайковёрты
+compressors|Компрессоры
+welders|Сварочные аппараты
+measuring|Измерительные инструменты
+hand-tools|Ручной инструмент
+tool-sets|Наборы инструментов`),
+    ]),
+    node('building-materials', 'Стройматериалы', leaves('building-', `lumber|Пиломатериалы
+plywood|Фанера
+drywall|Гипсокартон
+bricks|Кирпич
+blocks|Блоки
+cement|Цемент
+insulation|Утеплитель
+roofing|Кровля
+waterproofing|Гидроизоляция`)),
+    node('plumbing', 'Сантехника', leaves('plumbing-', `pipes|Трубы
+fittings|Фитинги
+valves|Краны
+water-heaters|Водонагреватели
+filters|Фильтры для воды
+radiators|Радиаторы
+pumps|Насосы`)),
+    node('electrical', 'Электрика', leaves('electrical-', `cables|Кабели
+sockets|Розетки
+switches|Выключатели
+breakers|Автоматы
+panels|Щитки
+extensions|Удлинители
+light-fixtures|Светильники`)),
+    node('finishing', 'Отделочные материалы', leaves('finish-', `paint|Краска
+wallpaper|Обои
+tiles|Плитка
+plaster|Штукатурка
+putty|Шпаклёвка
+sealants|Герметики
+adhesives|Клей`)),
+    node('flooring', 'Напольные покрытия', leaves('floor-', `laminate|Ламинат
+parquet|Паркет
+linoleum|Линолеум
+vinyl|Виниловая плитка
+carpet|Ковролин`)),
+    node('doors', 'Двери', leaves('door-', `interior|Межкомнатные двери
+entrance|Входные двери
+hardware|Фурнитура для дверей`)),
+    node('windows', 'Окна', leaves('window-', `plastic|Пластиковые окна
+wooden|Деревянные окна
+sills|Подоконники
+hardware|Оконная фурнитура`)),
+    node('fasteners', 'Крепёж', leaves('fastener-', `screws|Саморезы
+bolts|Болты
+nails|Гвозди
+anchors|Анкеры
+dowels|Дюбели`)),
+    node('construction-equipment', 'Оборудование', leaves('construction-', `ladders|Лестницы
+scaffolding|Строительные леса
+mixers|Бетономешалки
+generators|Генераторы
+heaters|Тепловые пушки`)),
+  ]),
+  node('pets', 'Животные', [
+    node('dogs', 'Для собак', leaves('dog-', `food|Корм
+bowls|Миски
+beds|Лежанки
+houses|Домики
+leashes|Поводки
+collars|Ошейники
+harnesses|Шлейки
+carriers|Переноски
+toys|Игрушки
+clothing|Одежда
+grooming|Груминг`)),
+    node('cats', 'Для кошек', leaves('cat-', `food|Корм
+bowls|Миски
+beds|Лежанки
+houses|Домики
+carriers|Переноски
+toys|Игрушки
+litter|Наполнители
+litter-boxes|Лотки
+scratchers|Когтеточки
+grooming|Груминг`)),
+    node('birds', 'Для птиц', leaves('bird-', `food|Корм
+cages|Клетки
+feeders|Кормушки
+toys|Игрушки`)),
+    node('fish', 'Для рыб', leaves('', `aquariums|Аквариумы
+aquarium-filters|Фильтры для аквариума
+aquarium-lighting|Освещение для аквариума
+aquarium-decor|Декор для аквариума
+fish-food|Корм для рыб`)),
+    node('rodents', 'Для грызунов', leaves('rodent-', `cages|Клетки
+food|Корм
+bowls|Миски
+houses|Домики
+toys|Игрушки`)),
+    node('reptiles', 'Для рептилий', leaves('reptile-', `terrariums|Террариумы
+heating|Обогрев
+lighting|Освещение
+food|Корм`)),
+    node('pet-accessories', 'Общие товары для животных', leaves('pet-', `cleaning|Уход и уборка
+training|Дрессировка
+travel|Поездки с животными`)),
+  ]),
+  node('office', 'Канцелярия и офис', [
+    node('stationery', 'Канцелярия', leaves('stationery-', `paper|Бумага
+pens|Ручки
+pencils|Карандаши
+markers|Маркеры
+notebooks|Тетради
+notepads|Блокноты
+folders|Папки
+organizers|Органайзеры
+calculators|Калькуляторы
+boards|Доски
+staplers|Степлеры
+scissors|Ножницы`)),
+    node('office-furniture', 'Офисная мебель', leaves('office-', `desks|Столы
+chairs|Кресла
+cabinets|Шкафы
+shelves|Стеллажи
+drawers|Тумбы`)),
+    node('office-equipment', 'Офисная техника', leaves('office-equipment-', `printers|Принтеры
+scanners|Сканеры
+copiers|Копиры
+shredders|Шредеры
+laminators|Ламинаторы
+projectors|Проекторы`)),
+  ]),
+  node('housewares', 'Посуда и хозтовары', [
+    node('tableware', 'Посуда', leaves('houseware-', `plates|Тарелки
+mugs|Кружки
+cups|Чашки
+glasses|Стаканы
+bowls|Миски
+cutlery|Столовые приборы
+sets|Сервизы
+pots|Кастрюли
+pans|Сковороды`)),
+    node('cleaning', 'Инвентарь для уборки', leaves('cleaning-', `buckets|Вёдра
+mops|Швабры
+brushes|Щётки
+dustpans|Совки
+cloths|Салфетки
+vacuum-accessories|Аксессуары для пылесосов`)),
+    node('storage-housewares', 'Хранение', leaves('storage-', `containers|Контейнеры
+baskets|Корзины
+bags|Пакеты
+boxes|Коробки
+organizers|Органайзеры`)),
+    node('laundry-housewares', 'Стирка и глажка', leaves('laundry-', `dryers|Сушилки
+ironing-boards|Гладильные доски
+baskets|Корзины для белья
+hangers|Вешалки`)),
+  ]),
+  node('other', 'Другое', [], { searchAliases: ['прочее', 'разное'] }),
+];
+
+// An index makes lookups fast while the tree can grow to any depth.
+const byId = new Map();
+const parentById = new Map();
+const allNodes = [];
+function indexNodes(nodes, parent = null) {
+  for (const item of nodes) {
+    if (byId.has(item.id)) throw new Error(`Повторяющийся ID категории: ${item.id}`);
+    byId.set(item.id, item);
+    parentById.set(item.id, parent);
+    allNodes.push(item);
+    indexNodes(item.children || [], item.id);
+  }
+}
+indexNodes(taxonomy);
+
+export const categories = taxonomy;
+export function getCategory(id) { return byId.get(id) || null; }
+export function getCategoryChildren(id) { return id ? getCategory(id)?.children || [] : taxonomy; }
+export function getCategoryPath(id) {
+  const path = [];
+  let current = getCategory(id);
+  while (current) {
+    path.unshift(current);
+    current = getCategory(parentById.get(current.id));
+  }
+  return path;
+}
+export function getDescendantCategoryIds(id) {
+  const root = getCategory(id);
+  if (!root) return [];
+  const ids = [];
+  const visit = (item) => {
+    ids.push(item.id);
+    for (const child of item.children || []) visit(child);
+  };
+  visit(root);
+  return ids;
+}
+export function isLeafCategory(id) {
+  const item = getCategory(id);
+  return Boolean(item && !(item.children || []).length);
+}
+export function getCategoryAttributes(id) {
+  const definitions = new Map();
+  for (const item of getCategoryPath(id)) {
+    for (const attribute of item.attributes || []) definitions.set(attribute.id, attribute);
+  }
+  return [...definitions.values()];
+}
+export function searchCategories(query, limit = 30) {
+  const needle = String(query || '').toLocaleLowerCase('ru').trim();
+  if (!needle) return [];
+  const scored = [];
+  for (const item of allNodes) {
+    const terms = [item.name, ...(item.searchAliases || [])].map((term) => term.toLocaleLowerCase('ru'));
+    const exact = terms.some((term) => term === needle);
+    const starts = terms.some((term) => term.startsWith(needle));
+    const contains = terms.some((term) => term.includes(needle));
+    if (contains) scored.push({ item, rank: exact ? 0 : starts ? 1 : 2 });
+  }
+  scored.sort((a, b) => a.rank - b.rank || a.item.name.localeCompare(b.item.name, 'ru'));
+  return scored.slice(0, Math.max(0, limit)).map(({ item }) => ({ ...item, path: getCategoryPath(item.id) }));
+}

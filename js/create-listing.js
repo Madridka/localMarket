@@ -7,6 +7,7 @@ import {
   addListing, escapeHtml, getCurrentUser, getListingById,
   renderShell, showToast, updateListing,
 } from './common.js';
+import { getCityLocation } from './location.js';
 
 renderShell('create');
 
@@ -125,6 +126,7 @@ form.addEventListener('submit', (event) => {
 
   const data = new FormData(form);
   const city = String(data.get('city')).trim();
+  const cityCenter = getCityLocation(city);
   const payload = {
     title: String(data.get('title')).trim(),
     categoryId: String(data.get('categoryId')),
@@ -135,7 +137,10 @@ form.addEventListener('submit', (event) => {
     condition: String(data.get('condition')),
     price: Number(data.get('price')),
     city,
-    distance: cityDistance(city),
+    regionId: cityCenter?.regionId || 'tomsk-oblast',
+    latitude: cityCenter?.latitude ?? null,
+    longitude: cityCenter?.longitude ?? null,
+    locationPrecision: 'city',
     images: photos.map((photo) => photo.dataUrl),
   };
   const listing = editing ? updateListing(editing.id, payload) : addListing(payload);
@@ -327,16 +332,3 @@ function setError(field, message) {
 }
 
 function clearError(field) { setError(field, ''); }
-
-function cityDistance(city) {
-  const known = {
-    'Томск': 1.2,
-    'Северск': 17,
-    'Асино': 105,
-    'Колпашево': 275,
-    'Стрежевой': 860,
-    'Кедровый': 540,
-    'Мельниково': 60,
-  };
-  return known[city] ?? 17;
-}

@@ -1,5 +1,9 @@
 import { conditions, seedListings, seedSellers, seedChats } from './data.js';
 import { getCategory as findCategory, isLeafCategory, searchCategories, getCategoryPath } from './categories.js';
+import {
+  CITY_LOCATIONS, formatListingLocation, getCurrentLocation,
+  requestUserLocation, setCurrentLocation,
+} from './location.js';
 
 const KEY = {
   listings: 'ryadom.listings.v1',
@@ -62,7 +66,13 @@ function firstLeaf(node) {
 }
 
 function migrateListingCategory(listing) {
-  if (isLeafCategory(listing.categoryId)) return listing;
+  if (isLeafCategory(listing.categoryId)) {
+    if (!('category' in listing) && !('subcategory' in listing)) return listing;
+    const migrated = { ...listing };
+    delete migrated.category;
+    delete migrated.subcategory;
+    return migrated;
+  }
   const oldRoot = listing.category || getCategoryPath(listing.categoryId)[0]?.id;
   const hint = legacyCategoryNames[listing.subcategory] || '';
   const words = [
@@ -113,7 +123,8 @@ export function addListing(listing) {
   const added = read(KEY.listings, []);
   const items = Array.isArray(added) ? added : [];
   const nextId = Math.max(1000, ...getListings().map(item => Number(item.id) || 0)) + 1;
-  const created = { ...listing, id: nextId, sellerId: 0, createdAt: new Date().toISOString(), views: 0, distance: listing.city === 'Томск' ? 1.2 : Number(listing.distance) || 17 };
+  const created = { ...listing, id: nextId, sellerId: 0, createdAt: new Date().toISOString(), views: 0 };
+  delete created.distance;
   if (!write(KEY.listings, [created, ...items])) return null;
   return created;
 }
@@ -127,6 +138,7 @@ export function updateListing(id, changes) {
   const updated = { ...migrateListingCategory(added[index]), ...changes, id: added[index].id, sellerId: currentUser.id };
   delete updated.category;
   delete updated.subcategory;
+  delete updated.distance;
   const items = [...added];
   items[index] = updated;
   return write(KEY.listings, items) ? updated : null;
@@ -216,10 +228,8 @@ export function toggleSavedSearch(search) {
 }
 
 export function formatPrice(value) { return `${new Intl.NumberFormat('ru-RU').format(Number(value) || 0)} ₽`; }
-export function formatDistance(listing) {
-  const km = Number(listing.distance) || 0;
-  const distance = `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 }).format(km)} км`;
-  return `${listing.city || 'Томск'} · ${distance}`;
+export function formatDistance(listing, locationState = getCurrentLocation()) {
+  return formatListingLocation(listing, locationState);
 }
 export function formatDate(value) {
   const date = new Date(value);
@@ -253,9 +263,9 @@ export function icon(name, size = 20) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || ''}</svg>`;
 }
 
-export function listingCard(listing) {
+export function listingCard(listing, locationState = getCurrentLocation()) {
   const img = safeImage(listing.images?.[0]);
-  return `<article class="listing-card">
+  return `<article class="listing-card" data-listing-id="${escapeHtml(listing.id)}">
     <div class="listing-card__image">
       <a href="listing.html?id=${encodeURIComponent(listing.id)}" aria-label="Открыть объявление ${escapeHtml(listing.title)}"><img src="${escapeHtml(img)}" alt="${escapeHtml(listing.title)}" loading="lazy"></a>
       <button class="favorite-button ${isFavorite(listing.id) ? 'is-active' : ''}" type="button" data-favorite-id="${escapeHtml(listing.id)}" aria-label="${isFavorite(listing.id) ? 'Убрать из избранного' : 'Добавить в избранное'}" aria-pressed="${isFavorite(listing.id)}">${icon('heart', 20)}</button>
@@ -266,7 +276,7 @@ export function listingCard(listing) {
         <strong class="listing-card__price">${formatPrice(listing.price)}</strong>
         <span class="listing-card__title">${escapeHtml(listing.title)}</span>
         <span class="listing-card__meta">${escapeHtml(findCategory(listing.categoryId)?.name || 'Другое')}</span>
-        <span class="listing-card__meta">${escapeHtml(formatDistance(listing))}</span>
+        <span class="listing-card__meta" data-location-meta>${escapeHtml(formatDistance(listing, locationState))}</span>
         <span class="listing-card__meta listing-card__date">${escapeHtml(formatDate(listing.createdAt))}</span>
       </a>
     </div>
@@ -289,6 +299,44 @@ export function showToast(message) {
   setTimeout(() => { toast.classList.add('is-leaving'); setTimeout(() => toast.remove(), 200); }, 3200);
 }
 
+export function refreshLocationUi(refreshCards = true) {
+  const state = getCurrentLocation();
+  const city = CITY_LOCATIONS[state.cityId];
+  const cityButton = document.getElementById('header-city-button');
+  const cityName = cityButton?.querySelector('[data-header-city-name]');
+  if (cityName) cityName.textContent = city.name;
+  const current = document.querySelector('.city-menu__current');
+  if (current) current.textContent = city.name;
+  const centerLabel = document.querySelector('[data-center-label]');
+  if (centerLabel) centerLabel.textContent = `Использовать центр ${city.genitive}`;
+  const centerRadio = document.querySelector('[name="header-origin"][value="center"]');
+  const userRadio = document.querySelector('[name="header-origin"][value="user"]');
+  if (centerRadio) centerRadio.checked = state.mode !== 'user';
+  if (userRadio) userRadio.checked = state.mode === 'user';
+  document.querySelectorAll('[data-location-city]').forEach((button) => {
+    button.setAttribute('aria-current', String(button.dataset.locationCity === state.cityId));
+  });
+  if (refreshCards) document.querySelectorAll('[data-location-meta]').forEach((element) => {
+    const id = element.closest('[data-listing-id]')?.dataset.listingId;
+    const listing = id ? getListingById(id) : null;
+    if (listing) element.textContent = formatDistance(listing);
+  });
+}
+
+function closeCityMenu() {
+  const menu = document.getElementById('city-menu');
+  const button = document.getElementById('header-city-button');
+  if (menu) menu.hidden = true;
+  if (button) button.setAttribute('aria-expanded', 'false');
+}
+
+function changeLocation(input) {
+  const next = setCurrentLocation(input);
+  refreshLocationUi();
+  document.dispatchEvent(new CustomEvent('location:changed', { detail: { location: next } }));
+  closeCityMenu();
+}
+
 export function renderShell(activePage = '') {
   const header = document.getElementById('site-header');
   const mobile = document.getElementById('mobile-nav');
@@ -302,8 +350,18 @@ export function renderShell(activePage = '') {
         <div id="recent-searches" class="search-suggestions" hidden></div>
       </form>
       <div class="header-actions">
-        <div class="city-picker"><button class="header-city" id="header-city-button" type="button" aria-expanded="false" aria-controls="city-menu">${icon('pin', 18)}<span>Томск</span>${icon('chevron', 16)}</button>
-          <div class="city-menu" id="city-menu" hidden><strong>Смотреть объявления в</strong><button type="button" data-city="">Вся область</button>${['Томск','Северск','Асино','Колпашево','Стрежевой','Кедровый','Мельниково'].map(city => `<button type="button" data-city="${escapeHtml(city)}">${escapeHtml(city)}</button>`).join('')}</div>
+        <div class="city-picker"><button class="header-city" id="header-city-button" type="button" aria-expanded="false" aria-controls="city-menu">${icon('pin', 18)}<span data-header-city-name>${escapeHtml(getCurrentLocation().city)}</span>${icon('chevron', 16)}</button>
+          <div class="city-menu" id="city-menu" hidden>
+            <p class="city-menu__heading">Ваше местоположение</p>
+            <strong class="city-menu__current">${escapeHtml(getCurrentLocation().city)}</strong>
+            <div class="city-menu__origin" role="group" aria-label="Точка отсчёта расстояния">
+              <label><input type="radio" name="header-origin" value="center" ${getCurrentLocation().mode === 'cityCenter' ? 'checked' : ''}><span data-center-label>Использовать центр ${escapeHtml(CITY_LOCATIONS[getCurrentLocation().cityId].genitive)}</span></label>
+              <label><input type="radio" name="header-origin" value="user" ${getCurrentLocation().mode === 'user' ? 'checked' : ''}><span>Использовать моё местоположение</span></label>
+            </div>
+            <button class="city-menu__change" id="city-change-button" type="button" aria-expanded="false" aria-controls="city-options">Изменить город</button>
+            <div class="city-menu__cities" id="city-options" hidden>${Object.values(CITY_LOCATIONS).map(city => `<button type="button" data-location-city="${city.id}" aria-current="${city.id === getCurrentLocation().cityId}">${escapeHtml(city.name)}</button>`).join('')}</div>
+            <p class="city-menu__status" id="city-menu-status" role="status" hidden></p>
+          </div>
         </div>
         <a class="header-icon" href="favorites.html" aria-label="Избранное" title="Избранное">${icon('heart', 21)}</a>
         <a class="header-icon" href="messages.html" aria-label="Сообщения" title="Сообщения">${icon('chat', 21)}</a>
@@ -323,7 +381,7 @@ export function renderShell(activePage = '') {
     ];
     mobile.innerHTML = links.map(([key, href, symbol, label]) => `<a href="${href}" class="${activePage === key ? 'is-active' : ''}" ${activePage === key ? 'aria-current="page"' : ''}>${icon(symbol, 21)}<span>${label}</span></a>`).join('');
   }
-  document.addEventListener('click', event => {
+  document.addEventListener('click', async event => {
     const favorite = event.target.closest('[data-favorite-id]');
     if (favorite) { event.preventDefault(); toggleFavorite(favorite.dataset.favoriteId); return; }
     const cityButton = event.target.closest('#header-city-button');
@@ -333,17 +391,50 @@ export function renderShell(activePage = '') {
       cityButton.setAttribute('aria-expanded', String(!cityMenu.hidden));
       return;
     }
-    const cityOption = event.target.closest('[data-city]');
-    if (cityOption) {
-      const params = new URLSearchParams();
-      if (cityOption.dataset.city) params.set('city', cityOption.dataset.city);
-      location.href = `index.html${params.size ? `?${params}` : ''}`;
+    const cityChange = event.target.closest('#city-change-button');
+    if (cityChange) {
+      const options = document.getElementById('city-options');
+      options.hidden = !options.hidden;
+      cityChange.setAttribute('aria-expanded', String(!options.hidden));
       return;
     }
-    if (cityMenu && !event.target.closest('.city-picker')) { cityMenu.hidden = true; document.getElementById('header-city-button')?.setAttribute('aria-expanded', 'false'); }
+    const cityOption = event.target.closest('[data-location-city]');
+    if (cityOption) {
+      changeLocation({ ...getCurrentLocation(), cityId: cityOption.dataset.locationCity, mode: 'cityCenter', latitude: null, longitude: null });
+      return;
+    }
+    const originInput = event.target.closest('[name="header-origin"]');
+    if (originInput) {
+      const state = getCurrentLocation();
+      if (originInput.value === 'center') {
+        changeLocation({ ...state, mode: 'cityCenter', latitude: null, longitude: null });
+      } else {
+        const status = document.getElementById('city-menu-status');
+        if (status) { status.textContent = 'Определяем местоположение…'; status.hidden = false; }
+        try {
+          const point = await requestUserLocation();
+          changeLocation({
+            ...state, ...point, mode: 'user',
+            scope: state.scope === 'region' ? 'radius' : state.scope,
+            radiusKm: state.scope === 'region' ? 30 : state.radiusKm,
+          });
+        } catch {
+          changeLocation({ ...state, mode: 'cityCenter', latitude: null, longitude: null });
+          showToast(`Не удалось получить местоположение. Будем считать расстояние от центра ${CITY_LOCATIONS[state.cityId].genitive}.`);
+        }
+        if (status) status.hidden = true;
+      }
+      return;
+    }
+    if (cityMenu && !event.target.closest('.city-picker')) closeCityMenu();
   });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !document.getElementById('city-menu')?.hidden) closeCityMenu();
+  });
+  document.addEventListener('location:changed', refreshLocationUi);
   document.addEventListener('error', event => {
     if (event.target instanceof HTMLImageElement && !event.target.src.endsWith('/assets/placeholder.svg')) event.target.src = './assets/placeholder.svg';
   }, true);
   syncFavoriteButtons();
+  refreshLocationUi();
 }
