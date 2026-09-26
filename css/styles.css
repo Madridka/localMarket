@@ -380,7 +380,7 @@ textarea:focus-visible,
 
 .catalog-layout {
   display: grid;
-  grid-template-columns: 228px minmax(0, 1fr);
+  grid-template-columns: 264px minmax(0, 1fr);
   align-items: start;
   gap: 30px;
 }

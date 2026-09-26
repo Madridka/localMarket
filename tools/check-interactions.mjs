@@ -103,36 +103,33 @@ try {
     const shot = await send('Page.captureScreenshot', { format: 'png' });
     writeFileSync(resolve(root, '.chrome-test', 'mobile-cdp.png'), Buffer.from(shot.data, 'base64'));
   }
-  await evaluate("document.querySelector('#category-open').click()");
-  await assertPage("!document.querySelector('#category-selector').hidden && !document.querySelector('#filter-sidebar .category-branch')", 'Category selector must open outside the compact filter sidebar');
-  await evaluate("document.querySelector('#category-branch [data-browse-category=home]').click()");
-  await assertPage("document.querySelector('#category-branch [data-select-category=home]')?.textContent.includes('Все объявления')", 'Parent category must be selectable');
-  await evaluate("document.querySelector('#category-branch [data-select-category=home]').click()");
-  await assertPage("document.querySelector('#category-selector').hidden && new URLSearchParams(location.search).get('category') === 'home' && document.querySelector('#category-current').textContent === 'Дом'", 'Selecting a parent category did not update the sidebar and URL');
+  await assertPage("!document.querySelector('#category-selector') && document.querySelector('#filter-sidebar #category-tree')", 'Categories must be embedded in the filter sidebar without a catalog modal');
+  await assertPage("document.querySelector('#category-tree [data-tree-category=\"\"]')?.textContent === 'Все категории' && document.querySelectorAll('#category-tree .category-tree__level [data-tree-category]').length <= 7", 'The root category level is not compact');
+  await evaluate("document.querySelector('#category-tree [data-category-tree-toggle]')?.click()");
+  await assertPage("!document.querySelector('#category-tree [data-category-tree-toggle]') || document.querySelector('#category-tree [data-category-tree-toggle]').textContent === 'Свернуть'", 'The root category level did not expand');
+  await evaluate("document.querySelector('#category-tree [data-tree-category=home]').click()");
+  await assertPage("new URLSearchParams(location.search).get('category') === 'home' && document.querySelector('#category-tree [data-tree-category=home]').classList.contains('category-current') && document.querySelector('#category-tree [data-tree-category=kitchen]')", 'Selecting a parent category did not update the contextual tree and URL');
   const homeCount = await evaluate("document.querySelectorAll('#listing-grid .listing-card').length");
   if (homeCount <= 1 || homeCount >= 80) throw new Error(`Parent category did not include descendants: ${homeCount} cards`);
 
-  await evaluate("document.querySelector('#category-open').click()");
-  await evaluate("(() => { const input = document.querySelector('#category-search'); input.value = 'оперативка'; input.dispatchEvent(new Event('input', { bubbles: true })); })()");
-  await assertPage("!!document.querySelector('#category-branch [data-select-category=ram]')", 'Category selector search did not find the RAM category alias');
-  await evaluate("document.querySelector('#category-branch [data-select-category=ram]').click()");
-  await assertPage("new URLSearchParams(location.search).get('category') === 'ram' && document.querySelectorAll('#listing-grid .listing-card').length === 1", 'Search result did not select its parent category');
-
-  await evaluate("document.querySelector('#category-open').click()");
-  await evaluate(`document.querySelector('#category-branch [data-browse-category=""]').click()`);
-  for (const id of ['home', 'kitchen', 'kitchen-furniture', 'kitchen-chairs-group']) {
-    const clicked = await evaluate(`(() => { const button = document.querySelector('#category-branch [data-browse-category="${id}"]'); if (!button) return false; button.click(); return true; })()`);
+  for (const id of ['kitchen', 'kitchen-furniture', 'kitchen-chairs-group', 'kitchen-chairs']) {
+    const clicked = await evaluate(`(() => { let button = document.querySelector('#category-tree [data-tree-category="${id}"]'); if (!button) { document.querySelector('#category-tree [data-category-tree-toggle]')?.click(); button = document.querySelector('#category-tree [data-tree-category="${id}"]'); } if (!button) return false; button.click(); return true; })()`);
     if (!clicked) throw new Error(`Category step ${id} missing`);
   }
-  await evaluate("document.querySelector('#category-branch [data-select-category=kitchen-chairs]').click()");
-  await assertPage("document.querySelector('#category-selector').hidden && document.querySelector('#category-current').textContent.includes('Дом › Кухня › Мебель › Стулья › Кухонные стулья')", 'Deep category selection did not leave a readable path in the sidebar');
+  await assertPage("document.querySelector('#category-tree [data-tree-category=kitchen-chairs]').classList.contains('category-current') && document.querySelectorAll('#category-tree .category-tree__path [data-tree-category]').length === 4", 'Deep leaf selection did not keep its ancestors and siblings visible');
+  await assertPage("Math.max(...[...document.querySelectorAll('#category-tree [style*=category-indent]')].map(item => parseInt(item.style.getPropertyValue('--category-indent')) || 0)) <= 48", 'Deep taxonomy indentation exceeded three visual levels');
   await assertPage("new URLSearchParams(location.search).get('category') === 'kitchen-chairs' && document.querySelectorAll('#listing-grid .listing-card').length === 1", 'Kitchen chairs filter did not narrow results');
   await evaluate("document.querySelector('#save-search').click()");
   if (!await evaluate("JSON.parse(localStorage.getItem('ryadom.saved-searches.v1')).some(item => item.category === 'kitchen-chairs')")) throw new Error('Selected category was not saved in search');
   await evaluate("document.querySelector('#listing-grid [data-favorite-id]').click()");
-  await evaluate(`document.querySelector('.category-nav [data-category=""]').click()`);
+  await evaluate("document.querySelector('#category-tree [data-tree-category=kitchen]').click()");
+  await assertPage("new URLSearchParams(location.search).get('category') === 'kitchen' && document.querySelector('#category-tree [data-tree-category=kitchen-furniture]')", 'Clicking an ancestor did not move back to its child level');
+  await evaluate("history.back()");
+  await ready("new URLSearchParams(location.search).get('category') === 'kitchen-chairs'");
+  await assertPage("document.querySelector('#category-tree [data-tree-category=kitchen-chairs]').classList.contains('category-current')", 'Browser Back did not restore the category tree');
+  await evaluate("document.querySelector('#category-tree [data-tree-category=\"\"]').click()");
   await assertPage("document.querySelectorAll('#listing-grid .listing-card').length === 80", 'Clearing the category did not restore region results');
-  console.log('Category selector, parent category, search and deep path: OK');
+  console.log('Contextual category tree, deep path and browser history: OK');
 
   await evaluate(`document.querySelector('[name=radius][value="10"]').click()`);
   await assertPage("document.querySelector('#catalog-title').textContent === 'Рядом с центром Томска' && !document.querySelector('#distance-origin-note').hidden && document.querySelector('#distance-origin-note').textContent.includes('от центра Томска')", 'Radius view must explain its city-centre origin');

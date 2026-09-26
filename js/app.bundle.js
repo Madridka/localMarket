@@ -1793,6 +1793,26 @@ indexNodes(taxonomy);
 
 const categories = taxonomy;
 function getCategory(id) { return byId.get(id) || null; }
+function getCategoryById(id) { return getCategory(id); }
+function getParentCategory(id) {
+  const parentId = parentById.get(id);
+  return parentId ? getCategory(parentId) : null;
+}
+function getCategoryParent(id) { return getParentCategory(id); }
+function getCategoryAncestors(id) { return getCategoryPath(id).slice(0, -1); }
+function getCategoryDepth(id) { return Math.max(0, getCategoryPath(id).length - 1); }
+function getRootCategory(id) { return getCategoryPath(id)[0] || null; }
+function getCategoryDisplayData(id) {
+  const category = getCategory(id);
+  if (!category) return null;
+  const parent = getParentCategory(id);
+  const root = getRootCategory(id);
+  return {
+    title: category.name,
+    parent: parent?.name || null,
+    root: root?.name || null,
+  };
+}
 function getCategoryChildren(id) { return id ? getCategory(id)?.children || [] : taxonomy; }
 function getCategoryPath(id) {
   const path = [];
@@ -1802,6 +1822,15 @@ function getCategoryPath(id) {
     current = getCategory(parentById.get(current.id));
   }
   return path;
+}
+function getCategorySidebarState(id) {
+  const current = getCategory(id);
+  if (!current) return { ancestors: [], current: null, children: taxonomy };
+  return {
+    ancestors: getCategoryAncestors(id),
+    current,
+    children: getCategoryChildren(id),
+  };
 }
 function getDescendantCategoryIds(id) {
   const root = getCategory(id);
@@ -1840,7 +1869,7 @@ function searchCategories(query, limit = 30) {
   return scored.slice(0, Math.max(0, limit)).map(({ item }) => ({ ...item, path: getCategoryPath(item.id) }));
 }
 
-return { taxonomy, categories, getCategory, getCategoryChildren, getCategoryPath, getDescendantCategoryIds, isLeafCategory, getCategoryAttributes, searchCategories };
+return { taxonomy, categories, getCategory, getCategoryById, getParentCategory, getCategoryParent, getCategoryAncestors, getCategoryDepth, getRootCategory, getCategoryDisplayData, getCategoryChildren, getCategoryPath, getCategorySidebarState, getDescendantCategoryIds, isLeafCategory, getCategoryAttributes, searchCategories };
 })();
 __market.location = (() => {
 'use strict';
@@ -2481,7 +2510,7 @@ return { escapeHtml, safeImage, getCurrentUser, getListings, getListingById, get
 function __run_catalog() {
 'use strict';
 const { conditions } = __market.data;
-const { categories: rootCategories, getCategory, getCategoryChildren, getCategoryPath, getDescendantCategoryIds, searchCategories,  } = __market.categories;
+const { categories: rootCategories, getCategory, getCategoryParent, getCategoryPath, getCategorySidebarState, getDescendantCategoryIds,  } = __market.categories;
 const { addRecentSearch, escapeHtml, getListings, getRecentSearches, getSavedSearches, icon, listingCard, refreshLocationUi, renderShell, showToast, toggleSavedSearch,  } = __market.common;
 const { CITY_LOCATIONS, distanceSortLabel, getCurrentLocation, listingDistanceKm, locationIntro, locationTitle, matchesLocation, normalizeLocationState, requestUserLocation, setCurrentLocation, setUserCoordinates,  } = __market.location;
 renderShell('index');
@@ -2492,18 +2521,13 @@ const searchInput = document.getElementById('global-search');
 const sortSelect = document.getElementById('sort-select');
 const categoryNav = document.getElementById('category-nav');
 const categoryInput = document.getElementById('filter-category');
-const categoryOpen = document.getElementById('category-open');
-const categoryCurrent = document.getElementById('category-current');
-const categoryAction = document.getElementById('category-action');
-const categorySelector = document.getElementById('category-selector');
-const categorySelectorBackdrop = document.getElementById('category-selector-backdrop');
-const categorySearch = document.getElementById('category-search');
-const categoryBranch = document.getElementById('category-branch');
+const categoryTree = document.getElementById('category-tree');
 const breadcrumbs = document.getElementById('catalog-breadcrumbs');
 const suggestions = document.getElementById('recent-searches');
 let searchTimer;
 let filterTimer;
-let browsedCategory = '';
+let categoryLevelExpanded = false;
+const CATEGORY_PREVIEW_LIMIT = 7;
 
 form.elements.city.innerHTML = Object.entries(CITY_LOCATIONS).map(([id, city]) => `<option value="${escapeHtml(id)}">${escapeHtml(city.name)}</option>`).join('');
 document.getElementById('condition-options').innerHTML = conditions.map(condition => `<label><input type="checkbox" name="condition" value="${condition.id}"> ${escapeHtml(condition.label)}</label>`).join('');
@@ -2638,10 +2662,41 @@ function renderCategories(active) {
   categoryNav.innerHTML = `<button type="button" class="category-chip ${!active ? 'is-active' : ''}" data-category="" aria-pressed="${!active}">Для вас</button>${rootCategories.map(category => `<button type="button" class="category-chip ${category.id === rootId ? 'is-active' : ''}" data-category="${escapeHtml(category.id)}" aria-pressed="${category.id === rootId}">${escapeHtml(category.name)}</button>`).join('')}`;
 }
 
-function renderCategorySummary(active) {
-  const path = getCategoryPath(active);
-  categoryCurrent.textContent = path.length ? path.map(node => node.name).join(' › ') : 'Все категории';
-  categoryAction.textContent = path.length ? 'Изменить' : 'Выбрать';
+function categoryTreeButton(category, depth, active, path = false) {
+  const current = category.id === active;
+  const classes = ['category-tree__item'];
+  if (current) classes.push('category-current');
+  if (path) classes.push('category-tree__path-item');
+  const indent = Math.min(depth, 3);
+  return `<button class="${classes.join(' ')}" style="--category-indent:${indent * 16}px" type="button" data-tree-category="${escapeHtml(category.id)}"${current ? ' aria-current="page"' : ''}>${escapeHtml(category.name)}</button>`;
+}
+
+function renderCategoryTree(active) {
+  const state = getCategorySidebarState(active);
+  let path = [];
+  let options = rootCategories;
+
+  if (state.current) {
+    if (state.children.length) {
+      path = [...state.ancestors, state.current];
+      options = state.children;
+    } else {
+      path = state.ancestors;
+      options = getCategoryParent(state.current.id)?.children || rootCategories;
+    }
+  }
+
+  const visible = categoryLevelExpanded ? options : options.slice(0, CATEGORY_PREVIEW_LIMIT);
+  const optionDepth = Math.min(path.length, 3);
+  const allCategories = `<button class="category-tree__all${state.current ? '' : ' category-current'}" type="button" data-tree-category=""${state.current ? '' : ' aria-current="page"'}>Все категории</button>`;
+  const pathHtml = path.length
+    ? `<div class="category-tree__path">${path.map((category, depth) => categoryTreeButton(category, depth, active, true)).join('')}</div>`
+    : '';
+  const optionsHtml = `<div class="category-tree__level">${visible.map(category => categoryTreeButton(category, optionDepth, active)).join('')}</div>`;
+  const toggle = options.length > CATEGORY_PREVIEW_LIMIT
+    ? `<button class="category-tree__toggle" type="button" data-category-tree-toggle aria-expanded="${categoryLevelExpanded}">${categoryLevelExpanded ? 'Свернуть' : 'Посмотреть все'}</button>`
+    : '';
+  categoryTree.innerHTML = `${allCategories}${pathHtml}${optionsHtml}${toggle}`;
 }
 
 function renderBreadcrumbs(active) {
@@ -2652,32 +2707,6 @@ function renderBreadcrumbs(active) {
     return;
   }
   breadcrumbs.innerHTML = `<a href="${escapeHtml(categoryHref(''))}" data-category="">Все категории</a>${path.map((node, index) => `<span aria-hidden="true">›</span><a href="${escapeHtml(categoryHref(node.id))}" data-category="${escapeHtml(node.id)}"${index === path.length - 1 ? ' aria-current="page"' : ''}>${escapeHtml(node.name)}</a>`).join('')}`;
-}
-
-function branchLink(node) {
-  const hasChildren = getCategoryChildren(node.id).length > 0;
-  return `<button class="category-branch__item" type="button" ${hasChildren ? 'data-browse-category' : 'data-select-category'}="${escapeHtml(node.id)}"><span>${escapeHtml(node.name)}</span>${hasChildren ? '<span aria-hidden="true">›</span>' : ''}</button>`;
-}
-
-function renderCategoryBranch(active = browsedCategory) {
-  const query = categorySearch.value.trim();
-  if (query) {
-    const matches = searchCategories(query, 25);
-    categoryBranch.innerHTML = matches.length
-      ? matches.map(node => `<button class="category-branch__result" type="button" data-select-category="${escapeHtml(node.id)}">${getCategoryPath(node.id).map(part => escapeHtml(part.name)).join(' <span aria-hidden="true">›</span> ')}</button>`).join('')
-      : '<p class="category-branch__empty">Категория не найдена</p>';
-    return;
-  }
-  const path = getCategoryPath(active);
-  const current = path[path.length - 1];
-  const parent = path[path.length - 2];
-  const children = current ? getCategoryChildren(current.id) : rootCategories;
-  const trail = current ? `<div class="category-branch__path"><button type="button" data-browse-category="">Все категории</button>${path.map((node, index) => `<span aria-hidden="true">›</span>${index === path.length - 1 ? `<span aria-current="location">${escapeHtml(node.name)}</span>` : `<button type="button" data-browse-category="${escapeHtml(node.id)}">${escapeHtml(node.name)}</button>`}`).join('')}</div>` : '';
-  const back = current ? `<button class="category-branch__back" type="button" data-browse-category="${escapeHtml(parent?.id || '')}">← ${escapeHtml(parent?.name || 'Все категории')}</button>` : '';
-  const select = current
-    ? `<button class="category-branch__all" type="button" data-select-category="${escapeHtml(current.id)}">Все объявления в категории ${escapeHtml(current.name)}</button>`
-    : categoryInput.value ? '<button class="category-branch__all" type="button" data-select-category="">Все категории</button>' : '';
-  categoryBranch.innerHTML = `${back}${trail}${select}<div class="category-branch__options">${children.map(node => branchLink(node)).join('')}</div>`;
 }
 
 function plural(n) {
@@ -2716,7 +2745,7 @@ function renderListings(mode = 'replace') {
   const listings = sortListings(filterListings(searchListings(getListings(), state.query), state), state.sort, state.location);
   updateUrl(state, mode);
   renderCategories(state.category);
-  renderCategorySummary(state.category);
+  renderCategoryTree(state.category);
   renderBreadcrumbs(state.category);
   renderLocationControls(state.location);
   updateSaveButton(state);
@@ -2743,30 +2772,9 @@ function closeFilters() {
   document.body.classList.remove('filters-open');
 }
 
-function openCategorySelector() {
-  browsedCategory = categoryInput.value;
-  categorySearch.value = '';
-  renderCategoryBranch();
-  categorySelector.hidden = false;
-  categorySelectorBackdrop.hidden = false;
-  categoryOpen.setAttribute('aria-expanded', 'true');
-  document.body.classList.add('category-selector-open');
-  categorySearch.focus();
-}
-
-function closeCategorySelector() {
-  if (categorySelector.hidden) return;
-  categorySelector.hidden = true;
-  categorySelectorBackdrop.hidden = true;
-  categoryOpen.setAttribute('aria-expanded', 'false');
-  document.body.classList.remove('category-selector-open');
-  categoryOpen.focus();
-}
-
 function selectCategory(id, keepFiltersOpen = false) {
   categoryInput.value = id && getCategory(id) ? id : '';
-  categorySearch.value = '';
-  closeCategorySelector();
+  categoryLevelExpanded = false;
   renderListings('push');
   if (!keepFiltersOpen) closeFilters();
 }
@@ -2775,6 +2783,7 @@ function resetFilters() {
   form.reset();
   searchInput.value = '';
   sortSelect.value = 'recommended';
+  categoryLevelExpanded = false;
   renderListings();
   closeFilters();
 }
@@ -2801,25 +2810,18 @@ categoryNav.addEventListener('click', event => {
   const button = event.target.closest('[data-category]');
   if (button) selectCategory(button.dataset.category);
 });
-categoryOpen.addEventListener('click', openCategorySelector);
-document.getElementById('category-selector-close').addEventListener('click', closeCategorySelector);
-categorySelectorBackdrop.addEventListener('click', closeCategorySelector);
-categoryBranch.addEventListener('click', event => {
-  const select = event.target.closest('[data-select-category]');
-  if (select) {
-    selectCategory(select.dataset.selectCategory, true);
+categoryTree.addEventListener('click', event => {
+  const category = event.target.closest('[data-tree-category]');
+  if (category) {
+    selectCategory(category.dataset.treeCategory, true);
     return;
   }
-  const browse = event.target.closest('[data-browse-category]');
-  if (browse) {
-    browsedCategory = browse.dataset.browseCategory;
-    categorySearch.value = '';
-    renderCategoryBranch();
-    categoryBranch.scrollTop = 0;
+  if (event.target.closest('[data-category-tree-toggle]')) {
+    categoryLevelExpanded = !categoryLevelExpanded;
+    renderCategoryTree(categoryInput.value);
   }
 });
 breadcrumbs.addEventListener('click', event => handleCategoryLink(event, false));
-categorySearch.addEventListener('input', () => renderCategoryBranch());
 
 searchInput.addEventListener('input', () => {
   clearTimeout(searchTimer);
@@ -2847,7 +2849,6 @@ document.addEventListener('click', event => { if (!event.target.closest('.header
 sortSelect.addEventListener('change', () => renderListings());
 form.addEventListener('submit', event => { event.preventDefault(); renderListings(); closeFilters(); });
 form.addEventListener('change', async event => {
-  if (event.target === categorySearch) return;
   if (event.target.name === 'origin' && event.target.value === 'user') {
     try {
       const point = await requestUserLocation();
@@ -2865,7 +2866,7 @@ form.addEventListener('change', async event => {
   renderListings();
 });
 form.addEventListener('input', event => {
-  if (event.target === categorySearch || event.target.type === 'radio' || event.target.tagName === 'SELECT') return;
+  if (event.target.type === 'radio' || event.target.tagName === 'SELECT') return;
   clearTimeout(filterTimer);
   filterTimer = setTimeout(() => renderListings(), 180);
 });
@@ -2887,29 +2888,13 @@ document.getElementById('filter-close').addEventListener('click', closeFilters);
 document.getElementById('filter-backdrop').addEventListener('click', closeFilters);
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') {
-    if (!categorySelector.hidden) closeCategorySelector();
-    else closeFilters();
+    closeFilters();
     suggestions.hidden = true;
-  }
-  if (event.key !== 'Tab' || categorySelector.hidden) return;
-  const focusable = [...categorySelector.querySelectorAll('button:not([disabled]), input:not([disabled])')];
-  const first = focusable[0];
-  const last = focusable[focusable.length - 1];
-  if (!categorySelector.contains(document.activeElement)) {
-    event.preventDefault();
-    first.focus();
-  } else if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
   }
 });
 window.addEventListener('popstate', () => {
-  closeCategorySelector();
   setFormState(stateFromUrl());
-  categorySearch.value = '';
+  categoryLevelExpanded = false;
   renderListings('replace');
 });
 

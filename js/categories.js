@@ -1148,6 +1148,26 @@ indexNodes(taxonomy);
 
 export const categories = taxonomy;
 export function getCategory(id) { return byId.get(id) || null; }
+export function getCategoryById(id) { return getCategory(id); }
+export function getParentCategory(id) {
+  const parentId = parentById.get(id);
+  return parentId ? getCategory(parentId) : null;
+}
+export function getCategoryParent(id) { return getParentCategory(id); }
+export function getCategoryAncestors(id) { return getCategoryPath(id).slice(0, -1); }
+export function getCategoryDepth(id) { return Math.max(0, getCategoryPath(id).length - 1); }
+export function getRootCategory(id) { return getCategoryPath(id)[0] || null; }
+export function getCategoryDisplayData(id) {
+  const category = getCategory(id);
+  if (!category) return null;
+  const parent = getParentCategory(id);
+  const root = getRootCategory(id);
+  return {
+    title: category.name,
+    parent: parent?.name || null,
+    root: root?.name || null,
+  };
+}
 export function getCategoryChildren(id) { return id ? getCategory(id)?.children || [] : taxonomy; }
 export function getCategoryPath(id) {
   const path = [];
@@ -1157,6 +1177,15 @@ export function getCategoryPath(id) {
     current = getCategory(parentById.get(current.id));
   }
   return path;
+}
+export function getCategorySidebarState(id) {
+  const current = getCategory(id);
+  if (!current) return { ancestors: [], current: null, children: taxonomy };
+  return {
+    ancestors: getCategoryAncestors(id),
+    current,
+    children: getCategoryChildren(id),
+  };
 }
 export function getDescendantCategoryIds(id) {
   const root = getCategory(id);

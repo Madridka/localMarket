@@ -21,9 +21,9 @@
         <div class="filter-sidebar__heading"><h2>Фильтры</h2><button class="filter-close" id="filter-close" type="button" aria-label="Закрыть фильтры">×</button></div>
         <form id="filter-form">
           <div class="filter-section category-filter">
-            <h3>Категория</h3>
+            <h3>Категории</h3>
             <input id="filter-category" name="category" type="hidden" value="">
-            <button id="category-open" class="category-filter__trigger" type="button" aria-haspopup="dialog" aria-controls="category-selector" aria-expanded="false"><span id="category-current" class="category-filter__value">Все категории</span><span id="category-action" class="category-filter__action">Выбрать</span></button>
+            <nav id="category-tree" class="category-tree" aria-label="Категории объявлений"></nav>
           </div>
           <div class="filter-section"><span class="filter-label">Цена, ₽</span><div class="price-fields"><label class="visually-hidden" for="filter-min">Цена от</label><input id="filter-min" name="min" inputmode="numeric" type="number" min="0" placeholder="От"><label class="visually-hidden" for="filter-max">Цена до</label><input id="filter-max" name="max" inputmode="numeric" type="number" min="0" placeholder="До"></div></div>
           <fieldset class="filter-section"><legend>Состояние</legend><div id="condition-options" class="filter-options"></div></fieldset>
@@ -53,13 +53,6 @@
       </section>
     </div>
   </main>
-  <div id="category-selector-backdrop" class="category-selector-backdrop" hidden></div>
-  <section id="category-selector" class="category-selector" role="dialog" aria-modal="true" aria-labelledby="category-selector-title" hidden>
-    <div class="category-selector__heading"><h2 id="category-selector-title">Категории</h2><button id="category-selector-close" class="category-selector__close" type="button" aria-label="Закрыть выбор категории">×</button></div>
-    <label class="visually-hidden" for="category-search">Поиск категории</label>
-    <input id="category-search" class="category-filter__search" type="search" placeholder="Поиск категории" autocomplete="off">
-    <nav id="category-branch" class="category-branch" aria-label="Выбор категории"></nav>
-  </section>
   <div id="toast-root" class="toast-container"></div>
   <nav id="mobile-nav" aria-label="Мобильная навигация"></nav>
   <script defer src="js/app.bundle.js"></script>
