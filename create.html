@@ -18,7 +18,7 @@
       <div>
         <p class="eyebrow">Разместить объявление</p>
         <h1>Что продаёте?</h1>
-        <p class="page-subtitle">Пара минут — и ваша вещь появится в объявлениях Томской области.</p>
+        <p class="page-subtitle">Пара минут — и вещь увидят покупатели поблизости.</p>
       </div>
     </div>
 
@@ -76,15 +76,22 @@
           <span class="form-error" data-error-for="price" aria-live="polite"></span>
         </div>
 
-        <div class="form-field form-field--full">
+        <div class="form-field form-field--full listing-location-field">
+          <h2>Где находится товар?</h2>
           <label for="listing-city">Город <span aria-hidden="true">*</span></label>
-          <select id="listing-city" name="city" required></select>
-          <span class="form-error" data-error-for="city" aria-live="polite"></span>
+          <select id="listing-city" name="cityId" required></select>
+          <button class="button button--secondary listing-location-button" id="listing-use-location" type="button">Использовать примерное местоположение</button>
+          <span class="location-divider">или</span>
+          <label for="listing-area">Район <span aria-hidden="true">*</span></label>
+          <select id="listing-area" name="areaId" required></select>
+          <p class="location-privacy">Точная позиция не будет показана покупателям. О месте встречи договоритесь в чате.</p>
+          <span class="form-error" data-error-for="cityId" aria-live="polite"></span>
+          <span class="form-error" data-error-for="areaId" aria-live="polite"></span>
         </div>
       </div>
 
       <div class="create-form__footer">
-        <p>Публикация бесплатная. Покупатели в Томской области увидят ваше объявление сразу.</p>
+        <p>Публикация бесплатная. Покупатели в выбранном городе увидят объявление сразу.</p>
         <button class="button button--primary" id="publish-button" type="submit">Опубликовать объявление</button>
       </div>
     </form>

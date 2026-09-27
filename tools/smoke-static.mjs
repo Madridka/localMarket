@@ -13,14 +13,13 @@ const chrome = [
 if (!chrome) throw new Error('Chrome or Edge is required for this optional smoke check');
 const profile = mkdtempSync(resolve(root, '.chrome-smoke-'));
 const checks = [
-  ['index.html', 80, 'Объявления в Томской области'],
-  ['index.html?city=tomsk&origin=center&radius=10', null, 'Рядом с центром Томска'],
-  ['index.html?city=seversk&origin=center&scope=region', 80, 'Объявления в Томской области'],
-  ['index.html?category=kitchen-chairs', 1, 'Кухонные стулья'],
-  ['index.html?category=ram', 1, 'Оперативная память'],
-  ['index.html?category=bathroom-toilet-paper-holders', 1, 'Держатели туалетной бумаги'],
-  ['index.html?category=computers', 4, 'Компьютеры'],
-  ['index.html?q=%D0%BE%D0%BF%D0%B5%D1%80%D0%B0%D1%82%D0%B8%D0%B2%D0%BA%D0%B0', 1, 'Поиск'],
+  ['index.html', null, 'В Томске'],
+  ['index.html?city=seversk', null, 'В Северске'],
+  ['index.html?city=moscow', null, 'В Москве'],
+  ['index.html?city=tomsk&category=kitchen-chairs', 1, 'Кухонные стулья'],
+  ['index.html?city=krasnoyarsk&category=ram', 1, 'Оперативная память'],
+  ['index.html?city=tomsk&category=computers', null, 'Компьютеры'],
+  ['index.html?city=tomsk&q=Lightning', 4, 'Поиск'],
 ];
 
 function open(route) {
@@ -39,23 +38,19 @@ try {
   for (const [route, expected, heading] of checks) {
     const html = open(route);
     const count = html.match(/<article class="listing-card"(?:\s|>)/g)?.length || 0;
-    if (expected === null ? count === 0 || count >= 80 : route.includes('computers') ? count < expected : count !== expected) {
+    if (expected === null ? count === 0 : count !== expected) {
       throw new Error(`${route}: ${count} cards; expected ${expected ?? 'between 1 and 79'}`);
     }
     if (!html.includes(heading)) throw new Error(`${route}: heading ${heading} missing`);
-    if (route === 'index.html' && (html.includes('Рядом с вами') || !html.includes('от центра Томска'))) {
-      throw new Error('Default region view must show the city centre as its distance origin');
-    }
-    if (route.includes('radius=10') && (!html.includes('Расстояние считается от центра Томска') || html.includes('от вас'))) {
-      throw new Error('Radius view must label distances from the city centre');
-    }
+    if (route === 'index.html' && (html.includes('Рядом с вами') || html.includes('от центра'))) throw new Error('Default city mode incorrectly claims a nearby origin');
+    if (route.includes('city=moscow') && html.includes('Кировский район')) throw new Error('Moscow results leaked listings from Tomsk');
     console.log(`${route}: ${count} cards`);
   }
-  const detail = open('listing.html?id=38&city=tomsk&origin=center');
+  const detail = open('listing.html?id=38&city=tomsk');
   if (!detail.includes('Оперативная память') || !detail.includes('Характеристики') || !detail.includes('5600')) throw new Error('Listing detail is missing category path or attributes');
-  if (!detail.includes('от центра Томска') || detail.includes('от вас')) throw new Error('Listing detail has an incorrect distance origin');
+  if (!detail.includes('Точное местоположение продавца скрыто') || detail.includes('от центра')) throw new Error('Listing detail is missing location privacy');
   const create = open('create.html');
-  if (!create.includes('category-picker__option') || !create.includes('Поиск категории')) throw new Error('Create form category picker did not render');
+  if (!create.includes('category-picker__option') || !create.includes('Поиск категории') || !create.includes('listing-area')) throw new Error('Create form category or approximate location picker did not render');
   const favorites = open('favorites.html');
   if (!favorites.includes('favorites-grid') || !favorites.includes('listing-card')) throw new Error('Favorites did not render');
   const profilePage = open('profile.html?id=1');

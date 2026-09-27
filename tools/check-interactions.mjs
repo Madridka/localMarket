@@ -78,13 +78,14 @@ try {
   await send('Page.addScriptToEvaluateOnNewDocument', { source: `
     window.__geoCalls = 0;
     window.__geoDecision = 'denied';
+    window.__geoPosition = { latitude: 56.53, longitude: 84.95 };
     Object.defineProperty(navigator, 'geolocation', {
       configurable: true,
       value: {
         getCurrentPosition(success, failure) {
           window.__geoCalls += 1;
           queueMicrotask(() => {
-            if (window.__geoDecision === 'granted') success({ coords: { latitude: 56.53, longitude: 84.95 } });
+            if (window.__geoDecision === 'granted') success({ coords: window.__geoPosition });
             else failure({ code: 1, message: 'Permission denied' });
           });
         },
@@ -92,11 +93,12 @@ try {
     });
   ` });
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
-  await navigate('index.html', "document.querySelectorAll('#listing-grid .listing-card').length === 80");
-  await assertPage("document.querySelector('#catalog-title').textContent === 'Объявления в Томской области'", 'Default catalog title must describe the region');
-  await assertPage("document.querySelector('#filter-city').value === 'tomsk' && document.querySelector('[name=origin][value=center]').checked && document.querySelector('[name=radius][value=region]').checked", 'Default origin must be the centre of Tomsk with region scope');
+  await navigate('index.html', "document.querySelectorAll('#listing-grid .listing-card').length > 0");
+  const defaultCityCount = await evaluate("document.querySelectorAll('#listing-grid .listing-card').length");
+  await assertPage("document.querySelector('#catalog-title').textContent === 'В Томске'", 'Default catalog title must describe the selected city');
+  await assertPage("document.querySelector('#filter-city').value === 'tomsk' && document.querySelector('[data-location-mode=city]').getAttribute('aria-pressed') === 'true'", 'City mode must be active on first open');
   await assertPage("window.__geoCalls === 0", 'Geolocation was requested on first load');
-  await assertPage("[...document.querySelectorAll('#listing-grid [data-location-meta]')].every(item => !item.textContent.includes('от вас'))", 'Centre mode incorrectly claims distances from the user');
+  await assertPage("[...document.querySelectorAll('#listing-grid [data-location-meta]')].every(item => !/[≈<]|км|метр/.test(item.textContent))", 'City mode must not expose distance from an unknown origin');
   const mobileWidth = await evaluate('({ viewport: innerWidth, content: document.documentElement.scrollWidth })');
   if (mobileWidth.content > mobileWidth.viewport) throw new Error(`Mobile catalog overflows horizontally: ${JSON.stringify(mobileWidth)}`);
   if (process.env.MARKET_SCREENSHOT) {
@@ -110,7 +112,7 @@ try {
   await evaluate("document.querySelector('#category-tree [data-tree-category=home]').click()");
   await assertPage("new URLSearchParams(location.search).get('category') === 'home' && document.querySelector('#category-tree [data-tree-category=home]').classList.contains('category-current') && document.querySelector('#category-tree [data-tree-category=kitchen]')", 'Selecting a parent category did not update the contextual tree and URL');
   const homeCount = await evaluate("document.querySelectorAll('#listing-grid .listing-card').length");
-  if (homeCount <= 1 || homeCount >= 80) throw new Error(`Parent category did not include descendants: ${homeCount} cards`);
+  if (homeCount <= 1 || homeCount >= defaultCityCount) throw new Error(`Parent category did not include descendants: ${homeCount} cards`);
 
   for (const id of ['kitchen', 'kitchen-furniture', 'kitchen-chairs-group', 'kitchen-chairs']) {
     const clicked = await evaluate(`(() => { let button = document.querySelector('#category-tree [data-tree-category="${id}"]'); if (!button) { document.querySelector('#category-tree [data-category-tree-toggle]')?.click(); button = document.querySelector('#category-tree [data-tree-category="${id}"]'); } if (!button) return false; button.click(); return true; })()`);
@@ -128,44 +130,43 @@ try {
   await ready("new URLSearchParams(location.search).get('category') === 'kitchen-chairs'");
   await assertPage("document.querySelector('#category-tree [data-tree-category=kitchen-chairs]').classList.contains('category-current')", 'Browser Back did not restore the category tree');
   await evaluate("document.querySelector('#category-tree [data-tree-category=\"\"]').click()");
-  await assertPage("document.querySelectorAll('#listing-grid .listing-card').length === 80", 'Clearing the category did not restore region results');
+  await assertPage(`document.querySelectorAll('#listing-grid .listing-card').length === ${defaultCityCount}`, 'Clearing the category did not restore city results');
   console.log('Contextual category tree, deep path and browser history: OK');
 
-  await evaluate(`document.querySelector('[name=radius][value="10"]').click()`);
-  await assertPage("document.querySelector('#catalog-title').textContent === 'Рядом с центром Томска' && !document.querySelector('#distance-origin-note').hidden && document.querySelector('#distance-origin-note').textContent.includes('от центра Томска')", 'Radius view must explain its city-centre origin');
-  await assertPage("new URLSearchParams(location.search).get('radius') === '10' && !new URLSearchParams(location.search).has('scope')", 'Radius URL state is incorrect');
-  const radiusCount = await evaluate("document.querySelectorAll('#listing-grid .listing-card').length");
-  if (radiusCount <= 0 || radiusCount >= 80) throw new Error(`10 km radius did not narrow the catalog: ${radiusCount} cards`);
-  await assertPage("[...document.querySelectorAll('#listing-grid [data-location-meta]')].every(item => item.textContent.includes('от центра Томска') && !item.textContent.includes('от вас'))", 'Radius results have an incorrect origin label');
-  await evaluate("(() => { const city = document.querySelector('#filter-city'); city.value = 'seversk'; city.dispatchEvent(new Event('change', { bubbles: true })); })()");
-  await assertPage("document.querySelector('#catalog-title').textContent === 'Рядом с центром Северска' && document.querySelector('#center-origin-label').textContent === 'Центр Северска' && new URLSearchParams(location.search).get('city') === 'seversk'", 'Changing city did not change the distance origin');
-  await evaluate("document.querySelector('[name=radius][value=region]').click()");
-  await assertPage("document.querySelector('#catalog-title').textContent === 'Объявления в Томской области' && document.querySelectorAll('#listing-grid .listing-card').length === 80 && document.querySelector('#distance-origin-note').hidden", 'Region scope must include all regional listings and hide the radius note');
-  await assertPage("new URLSearchParams(location.search).get('scope') === 'region' && !new URLSearchParams(location.search).has('radius') && window.__geoCalls === 0", 'Region state or deferred geolocation is incorrect');
-  console.log('City-centre radius and region scope: OK');
+  await evaluate("document.querySelector('[data-location-mode=nearby]').click()");
+  await assertPage("window.__geoCalls === 0 && !document.querySelector('#location-permission').hidden", 'Nearby must show an explanation before requesting permission');
+  await evaluate("window.__geoDecision = 'granted'; document.querySelector('#use-my-location').click()");
+  await ready("document.querySelector('#catalog-title')?.textContent === 'Рядом с вами'");
+  await assertPage("window.__geoCalls === 1 && new URLSearchParams(location.search).get('location') === 'nearby' && document.querySelectorAll('#listing-grid .nearby-group').length > 0", 'Explicit geolocation did not enable adaptive nearby groups');
+  await assertPage(`!/[?&](?:latitude|longitude|lat|lng)=/.test(location.search) && !/(?:latitude|longitude)/.test(localStorage.getItem('ryadom.location.v2'))`, 'Raw user coordinates leaked into URL or storage');
+  await assertPage("[...document.querySelectorAll('#listing-grid [data-location-meta]')].some(item => /≈|< 300 м|7–10 км/.test(item.textContent))", 'Nearby cards do not show approximate distance');
+
+  await evaluate("(() => { const input = document.querySelector('#global-search'); input.value = 'Кухонные стулья'; input.dispatchEvent(new Event('input', { bubbles: true })); })()");
+  await ready("document.querySelectorAll('#listing-grid .listing-card').length === 1");
+  await assertPage("document.querySelector('.nearby-fallback')?.textContent.includes('Поблизости ничего не нашли')", 'A rare distant result did not fall back to the selected city');
+  await evaluate("(() => { const input = document.querySelector('#global-search'); input.value = 'Lightning'; input.dispatchEvent(new Event('input', { bubbles: true })); })()");
+  await ready("document.querySelectorAll('#listing-grid .listing-card').length === 4");
+  await assertPage("document.querySelector('.nearby-group h2') && document.querySelector('#listing-grid').classList.contains('nearby-feed')", 'Nearby search is not grouped geographically');
+  await evaluate("document.querySelector('[data-location-mode=city]').click()");
+  await ready("document.querySelector('#catalog-title')?.textContent.includes('Поиск')");
+  await assertPage("!new URLSearchParams(location.search).has('location') && [...document.querySelectorAll('#listing-grid [data-location-meta]')].every(item => !/[≈<]|км/.test(item.textContent))", 'City mode still behaves like a radius filter');
+
+  await evaluate("(() => { const input = document.querySelector('#global-search'); input.value = ''; input.dispatchEvent(new Event('input', { bubbles: true })); const city = document.querySelector('#filter-city'); city.value = 'moscow'; city.dispatchEvent(new Event('change', { bubbles: true })); })()");
+  await ready("document.querySelector('#catalog-title')?.textContent === 'В Москве'");
+  await assertPage("document.querySelectorAll('#listing-grid .listing-card').length > 0 && [...document.querySelectorAll('#listing-grid [data-location-meta]')].every(item => !item.textContent.includes('Кировский'))", 'Changing city leaked Tomsk listings');
+
+  await evaluate("(() => { const city = document.querySelector('#filter-city'); city.value = 'tomsk'; city.dispatchEvent(new Event('change', { bubbles: true })); document.querySelector('[data-location-mode=nearby]').click(); })()");
+  await evaluate("window.__geoDecision = 'denied'; document.querySelector('#use-my-location').click()");
+  await ready("window.__geoCalls === 2 && document.querySelector('#toast-root')?.textContent.includes('Не удалось получить местоположение')");
+  await evaluate("(() => { const area = document.querySelector('#filter-area'); area.value = 'kirovsky'; area.dispatchEvent(new Event('change', { bubbles: true })); })()");
+  await ready("document.querySelector('#catalog-title')?.textContent === 'Рядом с Кировским районом'");
+  await assertPage("new URLSearchParams(location.search).get('area') === 'kirovsky' && !new URLSearchParams(location.search).has('location')", 'Manual area fallback did not update state and URL');
+  await evaluate("(() => { const city = document.querySelector('#filter-city'); city.value = 'moscow'; city.dispatchEvent(new Event('change', { bubbles: true })); city.value = 'tomsk'; city.dispatchEvent(new Event('change', { bubbles: true })); document.querySelector('[data-location-mode=nearby]').click(); window.__geoDecision = 'granted'; window.__geoPosition = { latitude: 56.588, longitude: 84.95 }; document.querySelector('#use-my-location').click(); })()");
+  await ready("window.__geoCalls === 3 && document.querySelector('#catalog-title')?.textContent === 'Рядом с вами'");
+  await assertPage("JSON.parse(localStorage.getItem('ryadom.location.v2')).locationCell.centerLat >= 56.58", 'Nearby search did not use the user cell away from the city centre');
+  console.log('Local-first city, nearby, privacy and manual fallback: OK');
 
   await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
-  await evaluate("document.querySelector('#header-city-button').click()");
-  await evaluate("document.querySelector('#city-change-button').click()");
-  await evaluate("document.querySelector('[data-location-city=tomsk]').click()");
-  await assertPage("document.querySelector('#filter-city').value === 'tomsk' && document.querySelector('[data-header-city-name]').textContent === 'Томск' && new URLSearchParams(location.search).get('city') === 'tomsk'", 'Header city picker did not synchronize the catalog');
-  await evaluate(`document.querySelector('[name=radius][value="10"]').click()`);
-  const centreMeta = await evaluate(`document.querySelector('[data-listing-id="1"] [data-location-meta]')?.textContent`);
-  await evaluate("window.__geoDecision = 'granted'; document.querySelector('#header-city-button').click(); document.querySelector('[name=header-origin][value=user]').click()");
-  await ready("document.querySelector('#catalog-title')?.textContent === 'Рядом с вами'");
-  await assertPage("window.__geoCalls === 1 && document.querySelector('#distance-origin-note').textContent === 'Расстояние считается от вас' && new URLSearchParams(location.search).get('origin') === 'user'", 'Explicit geolocation did not enable the user origin');
-  await assertPage(`!/[?&](?:latitude|longitude|lat|lng)=/.test(location.search) && document.querySelector('[data-listing-id="1"] [data-location-meta]')?.textContent !== undefined`, 'User coordinates leaked into the URL or a nearby listing disappeared');
-  const userMeta = await evaluate(`document.querySelector('[data-listing-id="1"] [data-location-meta]')?.textContent`);
-  if (!centreMeta || !userMeta?.includes('от вас') || userMeta === centreMeta) throw new Error('User location did not recalculate listing distance');
-  await evaluate("document.querySelector('#header-city-button').click(); document.querySelector('[name=header-origin][value=center]').click()");
-  await evaluate("window.__geoDecision = 'denied'; document.querySelector('#header-city-button').click(); document.querySelector('[name=header-origin][value=user]').click()");
-  await ready("window.__geoCalls === 2 && document.querySelector('#toast-root')?.textContent.includes('Не удалось получить местоположение')");
-  await assertPage("document.querySelector('#catalog-title').textContent === 'Рядом с центром Томска' && document.querySelector('[name=origin][value=center]').checked && new URLSearchParams(location.search).get('origin') === 'center'", 'Denied geolocation did not restore the city-centre origin');
-  await evaluate("document.querySelector('[name=radius][value=region]').click()");
-  await evaluate("window.__geoDecision = 'granted'; document.querySelector('[name=origin][value=user]').click()");
-  await ready("document.querySelector('#catalog-title')?.textContent === 'Рядом с вами'");
-  await assertPage(`window.__geoCalls === 3 && document.querySelector('[name=radius][value="30"]').checked && new URLSearchParams(location.search).get('radius') === '30'`, 'Choosing my location from the region view must activate a nearby radius');
-  console.log('Geolocation is opt-in and denial falls back to the city centre: OK');
 
   await navigate('favorites.html', "document.querySelectorAll('#favorites-grid .listing-card').length === 4");
   console.log('Favorite listing from the catalog: OK');
@@ -177,12 +178,13 @@ try {
   await evaluate("document.querySelector('[data-choose-category=ram-ddr5]').click()");
   if (await evaluate("document.querySelector('#listing-category').value") !== 'ram-ddr5') throw new Error('Leaf category was not selected');
   if (await evaluate("document.querySelectorAll('[data-attribute-id]').length") < 4) throw new Error('Dynamic RAM attributes did not render');
+  await evaluate("(() => { const area = document.querySelector('#listing-area'); area.value = 'kirovsky'; area.dispatchEvent(new Event('change', { bubbles: true })); })()");
   console.log('Create form search, drill-down and attributes: OK');
 
   await evaluate("new Promise(resolve => { const canvas = document.createElement('canvas'); canvas.width = 2; canvas.height = 2; canvas.getContext('2d').fillRect(0, 0, 2, 2); canvas.toBlob(blob => { const transfer = new DataTransfer(); transfer.items.add(new File([blob], 'test.png', { type: 'image/png' })); const input = document.querySelector('#listing-photos'); input.files = transfer.files; input.dispatchEvent(new Event('change', { bubbles: true })); resolve(true); }, 'image/png'); })");
   await ready("document.querySelectorAll('#photo-previews .photo-preview__item').length === 1");
-  await evaluate("(() => { const form = document.querySelector('#create-form'); form.elements.title.value = 'Тестовая память DDR5'; form.elements.description.value = 'Два исправных модуля'; form.elements.condition.value = 'good'; form.elements.price.value = '1000'; form.elements.city.value = 'Томск'; form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); })()");
-  if (!await evaluate("JSON.parse(localStorage.getItem('ryadom.listings.v1')).some(item => item.id === 1001 && item.categoryId === 'ram-ddr5')")) throw new Error('Publishing did not persist a leaf category listing');
+  await evaluate("(() => { const form = document.querySelector('#create-form'); form.elements.title.value = 'Тестовая память DDR5'; form.elements.description.value = 'Два исправных модуля'; form.elements.condition.value = 'good'; form.elements.price.value = '1000'; form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); })()");
+  if (!await evaluate("(() => { const item = JSON.parse(localStorage.getItem('ryadom.listings.v1')).find(item => item.id === 1001); return item?.categoryId === 'ram-ddr5' && item?.areaId === 'kirovsky' && item?.locationCell && !('latitude' in item) && !('longitude' in item); })()")) throw new Error('Publishing did not persist a privacy-safe listing location');
   console.log('Publishing a listing from file://: OK');
 
   await evaluate("(() => { const items = JSON.parse(localStorage.getItem('ryadom.listings.v1')); items.push({id:1002,title:'Старая память',description:'Работает',price:1000,category:'electronics',subcategory:'computers',condition:'good',city:'Томск',distance:1,images:['./assets/placeholder.svg'],sellerId:0,createdAt:'2026-09-20T10:00:00',views:0}); localStorage.setItem('ryadom.listings.v1', JSON.stringify(items)); })()");

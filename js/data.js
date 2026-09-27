@@ -2,31 +2,64 @@
 // The seed photos are bundled locally so the prototype works offline.
 const photo = (id) => `./assets/images/${id}.jpg`;
 
-// Approximate city centres in Tomsk Oblast. Seed listings below are fictional
-// examples; their coordinates are reproducible mock points near these centres.
+// Approximate public geography for the offline prototype. Exact addresses and
+// raw device coordinates are never part of marketplace data.
 export const locations = Object.freeze({
-  tomsk: { name: "Томск", genitive: "Томска", regionId: "tomsk-oblast", latitude: 56.48, longitude: 84.95 },
-  seversk: { name: "Северск", genitive: "Северска", regionId: "tomsk-oblast", latitude: 56.6006, longitude: 84.8864 },
-  asino: { name: "Асино", genitive: "Асино", regionId: "tomsk-oblast", latitude: 56.9999, longitude: 86.14 },
-  kolpashevo: { name: "Колпашево", genitive: "Колпашева", regionId: "tomsk-oblast", latitude: 58.32, longitude: 82.903 },
-  strezhevoy: { name: "Стрежевой", genitive: "Стрежевого", regionId: "tomsk-oblast", latitude: 60.733, longitude: 77.588 },
-  kedrovy: { name: "Кедровый", genitive: "Кедрового", regionId: "tomsk-oblast", latitude: 57.56, longitude: 79.56 },
-  melnikovo: { name: "Мельниково", genitive: "Мельниково", regionId: "tomsk-oblast", latitude: 56.55, longitude: 84.08 },
+  tomsk: { name: "Томск", genitive: "Томска", dative: "Томску", prepositional: "Томске", regionId: "tomsk-oblast", centerLat: 56.48, centerLng: 84.95 },
+  seversk: { name: "Северск", genitive: "Северска", dative: "Северску", prepositional: "Северске", regionId: "tomsk-oblast", centerLat: 56.6006, centerLng: 84.8864 },
+  asino: { name: "Асино", genitive: "Асино", dative: "Асино", prepositional: "Асино", regionId: "tomsk-oblast", centerLat: 56.9999, centerLng: 86.14 },
+  kolpashevo: { name: "Колпашево", genitive: "Колпашева", dative: "Колпашеву", prepositional: "Колпашеве", regionId: "tomsk-oblast", centerLat: 58.32, centerLng: 82.903 },
+  strezhevoy: { name: "Стрежевой", genitive: "Стрежевого", dative: "Стрежевому", prepositional: "Стрежевом", regionId: "tomsk-oblast", centerLat: 60.733, centerLng: 77.588 },
+  kedrovy: { name: "Кедровый", genitive: "Кедрового", dative: "Кедровому", prepositional: "Кедровом", regionId: "tomsk-oblast", centerLat: 57.56, centerLng: 79.56 },
+  melnikovo: { name: "Мельниково", genitive: "Мельниково", dative: "Мельникову", prepositional: "Мельникове", regionId: "tomsk-oblast", centerLat: 56.55, centerLng: 84.08 },
+  novosibirsk: { name: "Новосибирск", genitive: "Новосибирска", dative: "Новосибирску", prepositional: "Новосибирске", regionId: "novosibirsk-oblast", centerLat: 55.03, centerLng: 82.92 },
+  kemerovo: { name: "Кемерово", genitive: "Кемерова", dative: "Кемерову", prepositional: "Кемерове", regionId: "kemerovo-oblast", centerLat: 55.35, centerLng: 86.09 },
+  krasnoyarsk: { name: "Красноярск", genitive: "Красноярска", dative: "Красноярску", prepositional: "Красноярске", regionId: "krasnoyarsk-krai", centerLat: 56.01, centerLng: 92.87 },
+  moscow: { name: "Москва", genitive: "Москвы", dative: "Москве", prepositional: "Москве", regionId: "moscow", centerLat: 55.75, centerLng: 37.62 },
+});
+
+export const locationAreas = Object.freeze({
+  tomsk: [
+    { id: 'kirovsky', name: 'Кировский район', instrumental: 'Кировским районом', centerLat: 56.462, centerLng: 84.948 },
+    { id: 'sovetsky', name: 'Советский район', instrumental: 'Советским районом', centerLat: 56.472, centerLng: 85.004 },
+    { id: 'oktyabrsky', name: 'Октябрьский район', instrumental: 'Октябрьским районом', centerLat: 56.515, centerLng: 85.035 },
+    { id: 'leninsky', name: 'Ленинский район', instrumental: 'Ленинским районом', centerLat: 56.505, centerLng: 84.925 },
+  ],
+  seversk: [
+    { id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 56.598, centerLng: 84.887 },
+    { id: 'sosnovka', name: 'Сосновка', instrumental: 'Сосновкой', centerLat: 56.62, centerLng: 84.91 },
+  ],
+  asino: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 57, centerLng: 86.14 }],
+  kolpashevo: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 58.32, centerLng: 82.903 }],
+  strezhevoy: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 60.733, centerLng: 77.588 }],
+  kedrovy: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 57.56, centerLng: 79.56 }],
+  melnikovo: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 56.55, centerLng: 84.08 }],
+  novosibirsk: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 55.03, centerLng: 82.92 }],
+  kemerovo: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 55.35, centerLng: 86.09 }],
+  krasnoyarsk: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 56.01, centerLng: 92.87 }],
+  moscow: [{ id: 'central', name: 'Центральный округ', instrumental: 'Центральным округом', centerLat: 55.75, centerLng: 37.62 }],
 });
 
 export const cities = Object.values(locations).map(({ name }) => name);
 
-function seedListingCoordinates(city, id) {
-  const centre = Object.values(locations).find((entry) => entry.name === city);
-  if (!centre) return {};
-  // Stable mock positions, independent of the former hard-coded distance data.
+function seedListingLocation(cityName, id) {
+  const cityEntry = Object.entries(locations).find(([, entry]) => entry.name === cityName);
+  if (!cityEntry) return {};
+  const [cityId, city] = cityEntry;
+  const areas = locationAreas[cityId] || [];
+  const area = areas[id % Math.max(areas.length, 1)] || { id: 'city', name: city.name, centerLat: city.centerLat, centerLng: city.centerLng };
   const angle = (id * 137.508) * Math.PI / 180;
-  const radiusKm = 0.8 + (id * 17 % 81) / 10;
-  const northKm = Math.cos(angle) * radiusKm;
-  const eastKm = Math.sin(angle) * radiusKm;
+  const offsetKm = 0.15 + (id * 17 % 16) / 10;
+  const northKm = Math.cos(angle) * offsetKm;
+  const eastKm = Math.sin(angle) * offsetKm;
+  const centerLat = Number((area.centerLat + northKm / 111.32).toFixed(3));
+  const centerLng = Number((area.centerLng + eastKm / (111.32 * Math.cos(area.centerLat * Math.PI / 180))).toFixed(3));
   return {
-    latitude: Number((centre.latitude + northKm / 111.32).toFixed(6)),
-    longitude: Number((centre.longitude + eastKm / (111.32 * Math.cos(centre.latitude * Math.PI / 180))).toFixed(6)),
+    cityId,
+    regionId: city.regionId,
+    areaId: area.id,
+    publicAreaName: area.name,
+    locationCell: { id: `${cityId}-seed-${id}`, centerLat, centerLng },
   };
 }
 
@@ -42,12 +75,12 @@ export const seedSellers = [
   { id: 2, name: "Мария Белова", city: "Томск", rating: 5.0, reviewsCount: 18, registeredAt: "2024-11-08", verifiedPhone: true, responseTime: "Обычно отвечает в течение часа" },
   { id: 3, name: "Алексей Морозов", city: "Северск", rating: 4.8, reviewsCount: 24, registeredAt: "2025-02-21", verifiedPhone: true, responseTime: "Обычно отвечает за 30 минут" },
   { id: 4, name: "Екатерина Лебедева", city: "Томск", rating: 4.9, reviewsCount: 11, registeredAt: "2025-10-03", verifiedPhone: true, responseTime: "Обычно отвечает в течение часа" },
-  { id: 5, name: "Павел Соколов", city: "Асино", rating: 4.7, reviewsCount: 9, registeredAt: "2024-07-19", verifiedPhone: true, responseTime: "Обычно отвечает за 2 часа" },
+  { id: 5, name: "Павел Соколов", city: "Новосибирск", rating: 4.7, reviewsCount: 9, registeredAt: "2024-07-19", verifiedPhone: true, responseTime: "Обычно отвечает за 2 часа" },
   { id: 6, name: "Ольга Иванова", city: "Томск", rating: 5.0, reviewsCount: 27, registeredAt: "2023-09-12", verifiedPhone: true, responseTime: "Обычно отвечает за 20 минут" },
-  { id: 7, name: "Дмитрий Романов", city: "Мельниково", rating: 4.6, reviewsCount: 7, registeredAt: "2025-06-06", verifiedPhone: true, responseTime: "Обычно отвечает в течение дня" },
-  { id: 8, name: "Наталья Орлова", city: "Колпашево", rating: 4.9, reviewsCount: 14, registeredAt: "2024-03-28", verifiedPhone: true, responseTime: "Обычно отвечает за 2 часа" },
-  { id: 9, name: "Игорь Титов", city: "Стрежевой", rating: 4.8, reviewsCount: 6, registeredAt: "2025-01-30", verifiedPhone: true, responseTime: "Обычно отвечает в течение дня" },
-  { id: 10, name: "Светлана Миронова", city: "Кедровый", rating: 5.0, reviewsCount: 4, registeredAt: "2025-08-17", verifiedPhone: true, responseTime: "Обычно отвечает за 3 часа" },
+  { id: 7, name: "Дмитрий Романов", city: "Томск", rating: 4.6, reviewsCount: 7, registeredAt: "2025-06-06", verifiedPhone: true, responseTime: "Обычно отвечает в течение дня" },
+  { id: 8, name: "Наталья Орлова", city: "Красноярск", rating: 4.9, reviewsCount: 14, registeredAt: "2024-03-28", verifiedPhone: true, responseTime: "Обычно отвечает за 2 часа" },
+  { id: 9, name: "Игорь Титов", city: "Москва", rating: 4.8, reviewsCount: 6, registeredAt: "2025-01-30", verifiedPhone: true, responseTime: "Обычно отвечает в течение дня" },
+  { id: 10, name: "Светлана Миронова", city: "Кемерово", rating: 5.0, reviewsCount: 4, registeredAt: "2025-08-17", verifiedPhone: true, responseTime: "Обычно отвечает за 3 часа" },
 ];
 
 // Additional examples share the listing shape used by the original seed data.
@@ -583,7 +616,11 @@ export const seedListings = [
   sampleListing(78, "Кастрюля из нержавеющей стали", "Объём 5 л, крышка в комплекте. Дно ровное, подходит для индукции.", 1400, "houseware-pots", "photo-1731410083163-86f597abbecf"),
   sampleListing(79, "Набор контейнеров с крышками", "Восемь контейнеров разного объёма. Все крышки плотно закрываются.", 800, "storage-containers", "photo-1731410083163-86f597abbecf"),
   sampleListing(80, "Гладильная доска с подставкой", "Устойчивая доска, чехол чистый. Складывается без усилия.", 1900, "laundry-ironing-boards", "photo-1507473885765-e6ed057f782c"),
-].map((listing) => ({ ...listing, ...seedListingCoordinates(listing.city, listing.id) }));
+  sampleListing(81, "Кабель Lightning Apple", "Оригинальный кабель Lightning длиной один метр. Можно проверить при встрече.", 700, "phone-cables", "photo-1680687688158-e9165395ff00", "excellent"),
+  sampleListing(82, "Кабель Lightning в оплётке", "Прочный кабель для iPhone, новый, длина 1,5 метра.", 450, "phone-cables", "photo-1680687688158-e9165395ff00", "new"),
+  sampleListing(84, "Зарядный кабель Lightning", "Исправный кабель, использовался несколько раз как запасной.", 350, "phone-cables", "photo-1680687688158-e9165395ff00", "good"),
+  sampleListing(86, "Комплект Lightning кабелей", "Два кабеля для iPhone по одному метру, оба работают.", 800, "phone-cables", "photo-1680687688158-e9165395ff00", "good"),
+].map((listing) => ({ ...listing, ...seedListingLocation(listing.city, listing.id) }));
 
 export const seedReviews = [
   { id: 1, sellerId: 1, author: "Юлия", rating: 5, text: "Договорились быстро, телефон полностью соответствует описанию. Спасибо!", createdAt: "2026-08-30" },

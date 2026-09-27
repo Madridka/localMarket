@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
-  <title>Рядом — объявления в Томской области</title>
+  <title>Рядом — локальные объявления</title>
   <link rel="stylesheet" href="css/reset.css">
   <link rel="stylesheet" href="css/variables.css">
   <link rel="stylesheet" href="css/styles.css">
@@ -29,26 +29,19 @@
           <fieldset class="filter-section"><legend>Состояние</legend><div id="condition-options" class="filter-options"></div></fieldset>
           <div class="filter-section location-filter">
             <h3>Местоположение</h3>
-            <div class="location-city"><label for="filter-city">Город</label><select id="filter-city" name="city"></select></div>
-            <fieldset class="location-origin"><legend>Откуда считать расстояние</legend><div class="filter-options">
-              <label><input type="radio" name="origin" value="center" checked> <span id="center-origin-label">Центр Томска</span></label>
-              <label><input type="radio" name="origin" value="user"> Моё местоположение</label>
-            </div></fieldset>
-            <fieldset class="location-radius"><legend>Область поиска</legend><div class="filter-options">
-              <label><input type="radio" name="radius" value="5"> До 5 км</label>
-              <label><input type="radio" name="radius" value="10"> До 10 км</label>
-              <label><input type="radio" name="radius" value="30"> До 30 км</label>
-              <label><input type="radio" name="radius" value="100"> До 100 км</label>
-              <label><input type="radio" name="radius" value="region" checked> Вся Томская область</label>
-            </div></fieldset>
-            <p class="location-distance-note" id="distance-origin-note" hidden></p>
+            <div class="location-city-row"><strong id="location-current-city">Томск</strong><button id="location-change-city" type="button" aria-expanded="false" aria-controls="filter-city">Другой город</button></div>
+            <label class="visually-hidden" for="filter-city">Выберите город</label><select id="filter-city" name="city" hidden></select>
+            <span class="location-mode-label">Где искать</span>
+            <div class="location-mode-switch" role="group" aria-label="Режим поиска"><button type="button" data-location-mode="nearby" aria-pressed="false">Рядом</button><button type="button" data-location-mode="city" aria-pressed="true">По Томску</button></div>
+            <div class="location-permission" id="location-permission" hidden><p>Чтобы находить объявления действительно рядом, разрешите определить приблизительное местоположение.</p><button class="button button--primary" id="use-my-location" type="button">Использовать моё местоположение</button><label for="filter-area">Или выберите район</label><select id="filter-area" name="area"></select></div>
+            <p class="location-privacy">Точное местоположение скрыто.</p>
           </div>
           <div class="filter-actions"><button class="button button--primary" type="submit">Показать результаты</button><button class="button button--text" id="reset-filters" type="button">Сбросить фильтры</button></div>
         </form>
       </aside>
       <section class="catalog-content" aria-labelledby="catalog-title">
         <div class="catalog-heading"><div><nav id="catalog-breadcrumbs" class="breadcrumb catalog-breadcrumbs" aria-label="Путь категории"></nav><h1 id="catalog-title">Объявления в Томской области</h1><p id="catalog-count" class="catalog-count" aria-live="polite"></p><p id="catalog-intro" class="catalog-intro"></p></div></div>
-        <div class="catalog-toolbar"><div class="catalog-toolbar__left"><button class="filter-toggle button button--secondary" id="filter-toggle" type="button" aria-expanded="false" aria-controls="filter-sidebar">Фильтры</button></div><div class="catalog-toolbar__right"><button type="button" class="save-search-button" id="save-search">♡ <span>Сохранить поиск</span></button><label for="sort-select">Сортировать:</label><select class="sort-select" id="sort-select"><option value="recommended">Рекомендуемые</option><option value="distance">Ближе к центру</option><option value="newest">Сначала новые</option><option value="price-asc">Сначала дешевле</option><option value="price-desc">Сначала дороже</option></select></div></div>
+        <div class="catalog-toolbar"><div class="catalog-toolbar__left"><button class="filter-toggle button button--secondary" id="filter-toggle" type="button" aria-expanded="false" aria-controls="filter-sidebar">Фильтры</button></div><div class="catalog-toolbar__right"><button type="button" class="save-search-button" id="save-search">♡ <span>Сохранить поиск</span></button><label for="sort-select">Сортировать:</label><select class="sort-select" id="sort-select"><option value="recommended">Рекомендуемые</option><option value="distance">Сначала ближайшие</option><option value="newest">Сначала новые</option><option value="price-asc">Сначала дешевле</option><option value="price-desc">Сначала дороже</option></select></div></div>
         <div id="listing-grid" class="listing-grid" aria-live="polite"></div>
       </section>
     </div>

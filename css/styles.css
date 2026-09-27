@@ -907,40 +907,6 @@ textarea:focus-visible,
   display: none;
 }
 
-/* Location keeps the origin and search area together in the filter sidebar. */
-.location-city {
-  display: grid;
-  gap: 8px;
-}
-
-.location-city label,
-.location-origin legend,
-.location-radius legend {
-  margin: 0 0 8px;
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.location-city select {
-  width: 100%;
-}
-
-.location-origin,
-.location-radius {
-  min-width: 0;
-  margin: 16px 0 0;
-  padding: 0;
-  border: 0;
-}
-
-.location-distance-note {
-  margin-top: 10px;
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  line-height: 1.4;
-}
-
 .city-menu {
   width: 278px;
   max-width: calc(100vw - 32px);
@@ -960,28 +926,6 @@ textarea:focus-visible,
   font-weight: 720;
 }
 
-.city-menu__origin {
-  display: grid;
-  gap: 4px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.city-menu__origin label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 33px;
-  padding: 4px 9px;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.city-menu__origin input {
-  margin: 0;
-  accent-color: var(--color-primary);
-}
-
 .city-menu__change {
   margin-top: 5px;
   color: var(--color-primary) !important;
@@ -992,6 +936,106 @@ textarea:focus-visible,
   max-height: 236px;
   overflow-y: auto;
   padding-top: 5px;
+}
+
+.location-city-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.location-city-row strong { font-size: 15px; }
+.location-city-row button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.location-filter > select { width: 100%; margin: -6px 0 14px; }
+.location-mode-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.location-mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--color-background-secondary);
+}
+
+.location-mode-switch button {
+  min-height: 36px;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.location-mode-switch button.is-active {
+  background: #fff;
+  color: var(--color-text);
+  box-shadow: 0 1px 4px rgb(20 28 25 / 10%);
+}
+
+.location-mode-switch--header { margin: 0 8px 9px; }
+.location-permission {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-soft);
+}
+.location-permission[hidden] { display: none; }
+.location-permission p,
+.location-permission label,
+.location-privacy {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.location-permission .button { width: 100%; min-height: 38px; padding-inline: 10px; font-size: 12px; }
+.location-permission select { width: 100%; }
+.location-privacy { margin-top: 10px; }
+
+.nearby-feed { display: block; }
+.nearby-group + .nearby-group { margin-top: 30px; }
+.nearby-group > h2 { margin-bottom: 14px; font-size: 20px; font-weight: 730; }
+.nearby-fallback {
+  margin-bottom: 24px;
+  padding: 16px 18px;
+  border-radius: var(--radius-md);
+  background: var(--color-background-secondary);
+}
+.nearby-fallback p { margin-top: 4px; color: var(--color-text-secondary); font-size: 14px; }
+
+.listing-location-field { display: grid; gap: 10px; }
+.listing-location-field h2 { margin-bottom: 2px; font-size: 18px; }
+.listing-location-button { justify-self: start; margin-top: 4px; }
+.location-divider { color: var(--color-text-secondary); font-size: 12px; }
+.location-privacy-note {
+  margin-top: 22px !important;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+  font-size: 13px;
 }
 
 .city-menu__status {
