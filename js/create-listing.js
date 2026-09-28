@@ -8,8 +8,7 @@ import {
   renderShell, showToast, updateListing,
 } from './common.js';
 import {
-  CITY_LOCATIONS, createLocationCell, findNearestArea, getAreaLocation,
-  getCityAreas, getCityLocation, getCurrentLocation, requestUserLocation,
+  CITY_LOCATIONS, createLocationCell, getCityLocation, getCurrentLocation,
 } from './location.js';
 
 renderShell('create');
@@ -34,12 +33,10 @@ const editId = new URLSearchParams(window.location.search).get('edit');
 const editing = editId ? getListingById(editId) : null;
 let currentCategoryId = null;
 let processingPhotos = false;
-let listingLocationCell = null;
 
 fillSelect('listing-condition', conditions, 'Выберите состояние');
 fillSelect('listing-city', Object.values(CITY_LOCATIONS), 'Выберите город');
-document.querySelector('#listing-city').value = getCurrentLocation().cityId || getCityLocation(getCurrentUser().city)?.id || 'tomsk';
-renderAreaOptions();
+document.querySelector('#listing-city').value = getCurrentLocation().city || getCityLocation(getCurrentUser().city)?.id || 'tomsk';
 renderCategoryPicker();
 
 if (editId) {
@@ -55,9 +52,6 @@ if (editId) {
     form.elements.condition.value = editing.condition || '';
     form.elements.price.value = editing.price ?? '';
     form.elements.cityId.value = editing.cityId || getCityLocation(editing.city)?.id || 'tomsk';
-    renderAreaOptions();
-    form.elements.areaId.value = editing.areaId || '';
-    listingLocationCell = editing.locationCell || null;
     (editing.images || []).forEach((dataUrl, index) => photos.push({ name: `Фото ${index + 1}`, dataUrl }));
     renderPhotos();
     if (getCategory(editing.categoryId)) selectCategory(editing.categoryId, editing.attributes || {});
@@ -86,28 +80,6 @@ categoryBack.addEventListener('click', () => {
 });
 document.addEventListener('click', (event) => {
   if (!event.target.closest('#category-search-results') && event.target !== categorySearch) categorySearchResults.hidden = true;
-});
-
-form.elements.cityId.addEventListener('change', () => {
-  listingLocationCell = null;
-  renderAreaOptions();
-});
-form.elements.areaId.addEventListener('change', () => { listingLocationCell = null; });
-document.getElementById('listing-use-location').addEventListener('click', async event => {
-  const button = event.currentTarget;
-  button.disabled = true;
-  try {
-    const cityId = form.elements.cityId.value;
-    const approximate = await requestUserLocation(cityId);
-    listingLocationCell = approximate.locationCell;
-    const area = findNearestArea(cityId, listingLocationCell);
-    if (area) form.elements.areaId.value = area.id;
-    button.textContent = 'Примерное местоположение выбрано ✓';
-    clearError('areaId');
-  } catch {
-    button.disabled = false;
-    showToast('Не удалось получить местоположение. Выберите район вручную.');
-  }
 });
 
 photoDropzone.addEventListener('click', () => photoInput.click());
@@ -157,9 +129,7 @@ form.addEventListener('submit', (event) => {
   const data = new FormData(form);
   const cityId = String(data.get('cityId')).trim();
   const city = getCityLocation(cityId);
-  const areaId = String(data.get('areaId')).trim();
-  const area = getAreaLocation(cityId, areaId);
-  const locationCell = listingLocationCell || (area ? createLocationCell(area.centerLat, area.centerLng, cityId) : null);
+  const locationCell = city ? createLocationCell(city.centerLat, city.centerLng, cityId) : null;
   const payload = {
     title: String(data.get('title')).trim(),
     categoryId: String(data.get('categoryId')),
@@ -172,8 +142,7 @@ form.addEventListener('submit', (event) => {
     cityId,
     city: city?.name || '',
     regionId: city?.regionId || '',
-    areaId,
-    publicAreaName: area?.name || city?.name || '',
+    publicAreaName: city?.name || '',
     locationCell,
     images: photos.map((photo) => photo.dataUrl),
   };
@@ -263,11 +232,6 @@ function fillSelect(id, entries, placeholder) {
   select.innerHTML = `<option value="">${placeholder}</option>${options.join('')}`;
 }
 
-function renderAreaOptions() {
-  const cityId = form.elements.cityId.value;
-  fillSelect('listing-area', getCityAreas(cityId), 'Выберите район');
-}
-
 async function addPhotos(fileList) {
   if (processingPhotos) return;
   const files = [...fileList];
@@ -350,7 +314,6 @@ function validate() {
     condition: values.condition ? '' : 'Выберите состояние',
     price: values.price === '' || values.price === undefined || Number(values.price) < 0 || !Number.isFinite(Number(values.price)) ? 'Укажите цену от 0 ₽' : '',
     cityId: values.cityId ? '' : 'Выберите город',
-    areaId: values.areaId ? '' : 'Выберите район или используйте примерное местоположение',
   };
   Object.entries(errors).forEach(([field, message]) => setError(field, message));
   const firstError = Object.keys(errors).find((field) => errors[field]);

@@ -29,12 +29,8 @@
           <fieldset class="filter-section"><legend>Состояние</legend><div id="condition-options" class="filter-options"></div></fieldset>
           <div class="filter-section location-filter">
             <h3>Местоположение</h3>
-            <div class="location-city-row"><strong id="location-current-city">Томск</strong><button id="location-change-city" type="button" aria-expanded="false" aria-controls="filter-city">Другой город</button></div>
-            <label class="visually-hidden" for="filter-city">Выберите город</label><select id="filter-city" name="city" hidden></select>
-            <span class="location-mode-label">Где искать</span>
-            <div class="location-mode-switch" role="group" aria-label="Режим поиска"><button type="button" data-location-mode="nearby" aria-pressed="false">Рядом</button><button type="button" data-location-mode="city" aria-pressed="true">По Томску</button></div>
-            <div class="location-permission" id="location-permission" hidden><p>Чтобы находить объявления действительно рядом, разрешите определить приблизительное местоположение.</p><button class="button button--primary" id="use-my-location" type="button">Использовать моё местоположение</button><label for="filter-area">Или выберите район</label><select id="filter-area" name="area"></select></div>
-            <p class="location-privacy">Точное местоположение скрыто.</p>
+            <div class="location-filter__field"><label for="filter-city">Город</label><select id="filter-city" name="city"></select></div>
+            <div class="location-filter__field"><label for="filter-radius">Радиус поиска</label><select id="filter-radius" name="radius"><option value="5">5 км</option><option value="10">10 км</option><option value="25" selected>25 км</option><option value="50">50 км</option><option value="100">100 км</option><option value="200">200 км</option></select></div>
           </div>
           <div class="filter-actions"><button class="button button--primary" type="submit">Показать результаты</button><button class="button button--text" id="reset-filters" type="button">Сбросить фильтры</button></div>
         </form>

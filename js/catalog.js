@@ -5,12 +5,12 @@ import {
 } from './categories.js';
 import {
   addRecentSearch, escapeHtml, getListings, getRecentSearches, getSavedSearches,
-  icon, listingCard, refreshLocationUi, renderShell, showToast, toggleSavedSearch,
+  icon, listingCard, refreshLocationUi, renderShell, toggleSavedSearch,
 } from './common.js';
 import {
-  CITY_LOCATIONS, distanceSortLabel, getAdaptiveNearbyResults, getCityAreas,
+  CITY_LOCATIONS, distanceSortLabel,
   getCurrentLocation, listingDistanceKm, locationIntro, locationTitle,
-  matchesLocation, normalizeLocationState, requestUserLocation, setCurrentLocation,
+  matchesLocation, normalizeLocationState, setCurrentLocation,
 } from './location.js';
 
 renderShell('index');
@@ -35,7 +35,6 @@ document.getElementById('condition-options').innerHTML = conditions.map(conditio
 function stateFromUrl() {
   const params = new URLSearchParams(location.search);
   const current = getCurrentLocation();
-  const cityId = params.get('city') || current.cityId;
   return {
     query: params.get('q') || '',
     category: params.get('category') || '',
@@ -43,31 +42,21 @@ function stateFromUrl() {
     max: params.get('max') || '',
     conditions: (params.get('condition') || '').split(',').filter(Boolean),
     location: normalizeLocationState({
-      cityId,
-      mode: params.get('area') ? 'manual' : params.get('location') || (cityId === current.cityId ? current.mode : 'city'),
-      selectedAreaId: params.get('area') || (cityId === current.cityId ? current.selectedAreaId : null),
-      locationCell: cityId === current.cityId ? current.locationCell : null,
+      city: params.get('city') || current.city,
+      radius: params.get('radius') || current.radius,
     }),
     sort: params.get('sort') || 'recommended',
   };
 }
 
 function stateFromForm() {
-  const current = getCurrentLocation();
-  const cityId = form.elements.city.value || current.cityId;
   return {
     query: searchInput.value.trim(),
     category: categoryInput.value,
     min: form.elements.min.value,
     max: form.elements.max.value,
     conditions: [...form.querySelectorAll('[name="condition"]:checked')].map(input => input.value),
-    location: normalizeLocationState({
-      ...current,
-      cityId,
-      mode: cityId === current.cityId ? current.mode : 'city',
-      selectedAreaId: cityId === current.cityId ? current.selectedAreaId : null,
-      locationCell: cityId === current.cityId ? current.locationCell : null,
-    }),
+    location: normalizeLocationState({ city: form.elements.city.value, radius: form.elements.radius.value }),
     sort: sortSelect.value,
   };
 }
@@ -78,7 +67,8 @@ function setFormState(state) {
   categoryInput.value = getCategory(state.category)?.id || '';
   form.elements.min.value = state.min || '';
   form.elements.max.value = state.max || '';
-  form.elements.city.value = selectedLocation.cityId;
+  form.elements.city.value = selectedLocation.city;
+  form.elements.radius.value = String(selectedLocation.radius);
   sortSelect.value = state.sort || 'recommended';
   if (!sortSelect.value) sortSelect.value = 'recommended';
   form.querySelectorAll('[name="condition"]').forEach(input => {
@@ -138,9 +128,8 @@ function updateUrl(state, mode = 'replace') {
   if (state.min) url.searchParams.set('min', state.min);
   if (state.max) url.searchParams.set('max', state.max);
   if (state.conditions.length) url.searchParams.set('condition', state.conditions.join(','));
-  url.searchParams.set('city', state.location.cityId);
-  if (state.location.mode === 'nearby') url.searchParams.set('location', 'nearby');
-  if (state.location.mode === 'manual') url.searchParams.set('area', state.location.selectedAreaId);
+  url.searchParams.set('city', state.location.city);
+  url.searchParams.set('radius', String(state.location.radius));
   if (state.sort !== 'recommended') url.searchParams.set('sort', state.sort);
   if (url.href !== location.href) history[mode === 'push' ? 'pushState' : 'replaceState'](null, '', url);
 }
@@ -223,38 +212,9 @@ function updateSaveButton(state) {
 }
 
 function renderLocationControls(locationState) {
-  const city = CITY_LOCATIONS[locationState.cityId] || CITY_LOCATIONS.tomsk;
-  document.getElementById('location-current-city').textContent = city.name;
-  const area = document.getElementById('filter-area');
-  area.innerHTML = `<option value="">Выбрать район</option>${getCityAreas(city.id).map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`).join('')}`;
-  area.value = locationState.selectedAreaId || '';
-  document.querySelectorAll('[data-location-mode]').forEach((button) => {
-    const activeMode = locationState.mode === 'manual' ? 'nearby' : locationState.mode;
-    const active = button.dataset.locationMode === activeMode;
-    button.classList.toggle('is-active', active);
-    button.setAttribute('aria-pressed', String(active));
-    if (button.dataset.locationMode === 'city') button.textContent = `По ${city.dative || city.name}`;
-  });
-  if (locationState.mode !== 'city') document.getElementById('location-permission').hidden = true;
-  const useLocation = document.getElementById('use-my-location');
-  useLocation.disabled = false;
-  useLocation.textContent = 'Использовать моё местоположение';
-  sortSelect.querySelector('[value="distance"]').textContent = distanceSortLabel(locationState);
-}
-
-function renderNearbyFeed(listings, state) {
-  const groups = getAdaptiveNearbyResults(listings, state.location, state.query);
-  const localCount = groups.veryClose.length + groups.nearby.length + groups.notFar.length;
-  const sections = [
-    ['Совсем рядом', groups.veryClose],
-    ['Рядом', groups.nearby],
-    ['Недалеко', groups.notFar],
-    [`Ещё варианты в ${CITY_LOCATIONS[state.location.cityId].prepositional}`, groups.cityFallback],
-  ].filter(([, items]) => items.length);
-  const fallbackNote = localCount === 0 && groups.cityFallback.length
-    ? `<div class="nearby-fallback"><strong>Поблизости ничего не нашли.</strong><p>Есть ${groups.cityFallback.length} подходящих ${plural(groups.cityFallback.length)} в ${CITY_LOCATIONS[state.location.cityId].prepositional}.</p></div>`
-    : '';
-  return `${fallbackNote}${sections.map(([title, items]) => `<section class="nearby-group"><h2>${escapeHtml(title)}</h2><div class="listing-grid">${items.map((listing) => listingCard(listing, state.location)).join('')}</div></section>`).join('')}`;
+  form.elements.city.value = locationState.city;
+  form.elements.radius.value = String(locationState.radius);
+  sortSelect.querySelector('[value="distance"]').textContent = distanceSortLabel();
 }
 
 export function renderListings(mode = 'replace') {
@@ -273,11 +233,8 @@ export function renderListings(mode = 'replace') {
   const intro = document.getElementById('catalog-intro');
   intro.textContent = category || state.query ? '' : locationIntro(state.location);
   intro.hidden = !intro.textContent;
-  grid.classList.toggle('nearby-feed', state.location.mode !== 'city');
   grid.innerHTML = listings.length
-    ? state.location.mode === 'city'
-      ? listings.map(listing => listingCard(listing, state.location)).join('')
-      : renderNearbyFeed(listings, state)
+    ? listings.map(listing => listingCard(listing, state.location)).join('')
     : `<div class="empty-state"><div class="empty-state__icon">${icon('search', 30)}</div><h2>Ничего не нашли</h2><p>Попробуйте изменить категорию или другие фильтры.</p><button class="button button--secondary" type="button" id="empty-reset">Сбросить фильтры</button></div>`;
   refreshLocationUi(false);
 }
@@ -313,7 +270,7 @@ function renderSuggestions() {
   const recent = getRecentSearches();
   const saved = getSavedSearches();
   if (!recent.length && !saved.length) { suggestions.hidden = true; return; }
-  suggestions.innerHTML = `${recent.length ? `<div class="suggestion-heading">Недавние поиски</div>${recent.map(query => `<button type="button" data-recent-query="${escapeHtml(query)}">${icon('search', 15)} ${escapeHtml(query)}</button>`).join('')}` : ''}${saved.length ? `<div class="suggestion-heading">Сохранённые поиски</div>${saved.map((item, index) => `<button type="button" data-saved-index="${index}">${icon('heart', 15)} ${escapeHtml(item.query || getCategory(item.category)?.name || CITY_LOCATIONS[item.location?.cityId]?.name || item.city || 'Все объявления')}</button>`).join('')}` : ''}`;
+  suggestions.innerHTML = `${recent.length ? `<div class="suggestion-heading">Недавние поиски</div>${recent.map(query => `<button type="button" data-recent-query="${escapeHtml(query)}">${icon('search', 15)} ${escapeHtml(query)}</button>`).join('')}` : ''}${saved.length ? `<div class="suggestion-heading">Сохранённые поиски</div>${saved.map((item, index) => `<button type="button" data-saved-index="${index}">${icon('heart', 15)} ${escapeHtml(item.query || getCategory(item.category)?.name || CITY_LOCATIONS[item.location?.city]?.name || item.city || 'Все объявления')}</button>`).join('')}` : ''}`;
   suggestions.hidden = false;
 }
 
@@ -370,15 +327,8 @@ document.addEventListener('click', event => { if (!event.target.closest('.header
 sortSelect.addEventListener('change', () => renderListings());
 form.addEventListener('submit', event => { event.preventDefault(); renderListings(); closeFilters(); });
 form.addEventListener('change', event => {
-  if (event.target.name === 'city') {
-    setCurrentLocation({ cityId: event.target.value, mode: 'city' });
-    setFormState({ ...stateFromForm(), location: getCurrentLocation() });
-    renderListings('push');
-    return;
-  }
-  if (event.target.name === 'area' && event.target.value) {
-    setCurrentLocation({ cityId: form.elements.city.value, mode: 'manual', selectedAreaId: event.target.value });
-    setFormState({ ...stateFromForm(), location: getCurrentLocation() });
+  if (event.target.name === 'city' || event.target.name === 'radius') {
+    setCurrentLocation({ city: form.elements.city.value, radius: form.elements.radius.value });
     renderListings('push');
     return;
   }
@@ -388,47 +338,6 @@ form.addEventListener('input', event => {
   if (event.target.type === 'radio' || event.target.tagName === 'SELECT') return;
   clearTimeout(filterTimer);
   filterTimer = setTimeout(() => renderListings(), 180);
-});
-document.addEventListener('location:changed', event => {
-  const current = stateFromForm();
-  setFormState({ ...current, location: event.detail.location });
-  renderListings('push');
-});
-document.getElementById('location-change-city').addEventListener('click', event => {
-  const select = document.getElementById('filter-city');
-  select.hidden = !select.hidden;
-  event.currentTarget.setAttribute('aria-expanded', String(!select.hidden));
-  if (!select.hidden) select.focus();
-});
-form.querySelector('.location-mode-switch').addEventListener('click', event => {
-  const button = event.target.closest('[data-location-mode]');
-  if (!button) return;
-  const current = getCurrentLocation();
-  if (button.dataset.locationMode === 'city') {
-    setCurrentLocation({ ...current, mode: 'city', selectedAreaId: null });
-    setFormState({ ...stateFromForm(), location: getCurrentLocation() });
-    renderListings('push');
-  } else if (current.locationCell) {
-    setCurrentLocation({ ...current, mode: 'nearby', selectedAreaId: null });
-    setFormState({ ...stateFromForm(), location: getCurrentLocation() });
-    renderListings('push');
-  } else {
-    document.getElementById('location-permission').hidden = false;
-  }
-});
-document.getElementById('use-my-location').addEventListener('click', async event => {
-  const button = event.currentTarget;
-  button.disabled = true;
-  try {
-    const current = getCurrentLocation();
-    const approximate = await requestUserLocation(current.cityId);
-    setCurrentLocation({ ...current, ...approximate, mode: 'nearby', selectedAreaId: null });
-    setFormState({ ...stateFromForm(), location: getCurrentLocation() });
-    renderListings('push');
-  } catch {
-    button.disabled = false;
-    showToast('Не удалось получить местоположение. Можно продолжить искать по городу или выбрать район вручную.');
-  }
 });
 document.getElementById('reset-filters').addEventListener('click', resetFilters);
 grid.addEventListener('click', event => { if (event.target.closest('#empty-reset')) resetFilters(); });

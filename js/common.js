@@ -1,9 +1,8 @@
 import { conditions, seedListings, seedSellers, seedChats } from './data.js';
 import { getCategory as findCategory, isLeafCategory, searchCategories, getCategoryPath } from './categories.js';
 import {
-  CITY_LOCATIONS, createLocationCell, findNearestArea, formatListingLocation,
-  getAreaLocation, getCityAreas, getCityLocation, getCurrentLocation,
-  requestUserLocation, setCurrentLocation,
+  CITY_LOCATIONS, createLocationCell, formatListingLocation,
+  getCityLocation, getCurrentLocation,
 } from './location.js';
 
 const KEY = {
@@ -102,19 +101,16 @@ function migrateListingLocation(listing) {
   const existingCell = listing.locationCell
     ? createLocationCell(listing.locationCell.centerLat, listing.locationCell.centerLng, city.id)
     : null;
-  const fallbackAreas = getCityAreas(city.id);
-  const fallbackArea = getAreaLocation(city.id, listing.areaId) || fallbackAreas[Number(listing.id || 0) % Math.max(fallbackAreas.length, 1)] || null;
-  const locationCell = existingCell || rawPoint || (fallbackArea ? createLocationCell(fallbackArea.centerLat, fallbackArea.centerLng, city.id) : null);
-  const nearestArea = getAreaLocation(city.id, listing.areaId) || findNearestArea(city.id, locationCell) || fallbackArea;
+  const locationCell = existingCell || rawPoint || createLocationCell(city.centerLat, city.centerLng, city.id);
   const migrated = {
     ...listing,
     cityId: city.id,
     city: city.name,
     regionId: city.regionId,
-    areaId: nearestArea?.id || null,
-    publicAreaName: listing.publicAreaName || nearestArea?.name || city.name,
+    publicAreaName: city.name,
     locationCell,
   };
+  delete migrated.areaId;
   delete migrated.latitude;
   delete migrated.longitude;
   delete migrated.address;
@@ -330,47 +326,14 @@ export function showToast(message) {
 
 export function refreshLocationUi(refreshCards = true) {
   const state = getCurrentLocation();
-  const city = CITY_LOCATIONS[state.cityId];
-  const cityButton = document.getElementById('header-city-button');
-  const cityName = cityButton?.querySelector('[data-header-city-name]');
+  const city = CITY_LOCATIONS[state.city];
+  const cityName = document.querySelector('[data-header-city-name]');
   if (cityName) cityName.textContent = city.name;
-  const current = document.querySelector('.city-menu__current');
-  if (current) current.textContent = city.name;
-  document.querySelectorAll('[data-header-location-mode]').forEach((button) => {
-    const active = button.dataset.headerLocationMode === (state.mode === 'manual' ? 'nearby' : state.mode);
-    button.classList.toggle('is-active', active);
-    button.setAttribute('aria-pressed', String(active));
-    if (button.dataset.headerLocationMode === 'city') button.textContent = `По ${city.dative || city.name}`;
-  });
-  document.querySelectorAll('[data-location-city]').forEach((button) => {
-    button.setAttribute('aria-current', String(button.dataset.locationCity === state.cityId));
-  });
-  const areaSelect = document.getElementById('header-area');
-  if (areaSelect) {
-    areaSelect.innerHTML = `<option value="">Выбрать район</option>${getCityAreas(state.cityId).map((area) => `<option value="${escapeHtml(area.id)}">${escapeHtml(area.name)}</option>`).join('')}`;
-    areaSelect.value = state.selectedAreaId || '';
-  }
-  const permission = document.getElementById('header-location-permission');
-  if (permission && state.mode !== 'city') permission.hidden = true;
   if (refreshCards) document.querySelectorAll('[data-location-meta]').forEach((element) => {
     const id = element.closest('[data-listing-id]')?.dataset.listingId;
     const listing = id ? getListingById(id) : null;
     if (listing) element.textContent = formatDistance(listing);
   });
-}
-
-function closeCityMenu() {
-  const menu = document.getElementById('city-menu');
-  const button = document.getElementById('header-city-button');
-  if (menu) menu.hidden = true;
-  if (button) button.setAttribute('aria-expanded', 'false');
-}
-
-function changeLocation(input) {
-  const next = setCurrentLocation(input);
-  refreshLocationUi();
-  document.dispatchEvent(new CustomEvent('location:changed', { detail: { location: next } }));
-  closeCityMenu();
 }
 
 export function renderShell(activePage = '') {
@@ -386,20 +349,7 @@ export function renderShell(activePage = '') {
         <div id="recent-searches" class="search-suggestions" hidden></div>
       </form>
       <div class="header-actions">
-        <div class="city-picker"><button class="header-city" id="header-city-button" type="button" aria-expanded="false" aria-controls="city-menu">${icon('pin', 18)}<span data-header-city-name>${escapeHtml(getCurrentLocation().city)}</span>${icon('chevron', 16)}</button>
-          <div class="city-menu" id="city-menu" hidden>
-            <p class="city-menu__heading">Где искать</p>
-            <strong class="city-menu__current">${escapeHtml(getCurrentLocation().city)}</strong>
-            <div class="location-mode-switch location-mode-switch--header" role="group" aria-label="Режим поиска">
-              <button type="button" data-header-location-mode="nearby" aria-pressed="false">Рядом</button>
-              <button type="button" data-header-location-mode="city" aria-pressed="false">По ${escapeHtml(CITY_LOCATIONS[getCurrentLocation().cityId].dative || getCurrentLocation().city)}</button>
-            </div>
-            <div class="location-permission" id="header-location-permission" hidden><p>Разрешите определить примерное местоположение.</p><button type="button" class="button button--primary" id="header-use-location">Использовать моё местоположение</button><label for="header-area">Или выберите район</label><select id="header-area"></select><p>Точная позиция не будет показана другим.</p></div>
-            <button class="city-menu__change" id="city-change-button" type="button" aria-expanded="false" aria-controls="city-options">Другой город</button>
-            <div class="city-menu__cities" id="city-options" hidden>${Object.values(CITY_LOCATIONS).map(city => `<button type="button" data-location-city="${city.id}" aria-current="${city.id === getCurrentLocation().cityId}">${escapeHtml(city.name)}</button>`).join('')}</div>
-            <p class="city-menu__status" id="city-menu-status" role="status" hidden></p>
-          </div>
-        </div>
+        <span class="header-location">${icon('pin', 18)}<span data-header-city-name>${escapeHtml(CITY_LOCATIONS[getCurrentLocation().city].name)}</span></span>
         <a class="header-icon" href="favorites.html" aria-label="Избранное" title="Избранное">${icon('heart', 21)}</a>
         <a class="header-icon" href="messages.html" aria-label="Сообщения" title="Сообщения">${icon('chat', 21)}</a>
         <a class="header-profile" href="profile.html">Профиль</a>
@@ -418,64 +368,10 @@ export function renderShell(activePage = '') {
     ];
     mobile.innerHTML = links.map(([key, href, symbol, label]) => `<a href="${href}" class="${activePage === key ? 'is-active' : ''}" ${activePage === key ? 'aria-current="page"' : ''}>${icon(symbol, 21)}<span>${label}</span></a>`).join('');
   }
-  document.addEventListener('click', async event => {
+  document.addEventListener('click', event => {
     const favorite = event.target.closest('[data-favorite-id]');
     if (favorite) { event.preventDefault(); toggleFavorite(favorite.dataset.favoriteId); return; }
-    const cityButton = event.target.closest('#header-city-button');
-    const cityMenu = document.getElementById('city-menu');
-    if (cityButton && cityMenu) {
-      cityMenu.hidden = !cityMenu.hidden;
-      cityButton.setAttribute('aria-expanded', String(!cityMenu.hidden));
-      return;
-    }
-    const cityChange = event.target.closest('#city-change-button');
-    if (cityChange) {
-      const options = document.getElementById('city-options');
-      options.hidden = !options.hidden;
-      cityChange.setAttribute('aria-expanded', String(!options.hidden));
-      return;
-    }
-    const cityOption = event.target.closest('[data-location-city]');
-    if (cityOption) {
-      changeLocation({ cityId: cityOption.dataset.locationCity, mode: 'city' });
-      return;
-    }
-    const modeButton = event.target.closest('[data-header-location-mode]');
-    if (modeButton) {
-      const state = getCurrentLocation();
-      if (modeButton.dataset.headerLocationMode === 'city') {
-        changeLocation({ ...state, mode: 'city', selectedAreaId: null });
-      } else if (state.locationCell) {
-        changeLocation({ ...state, mode: 'nearby', selectedAreaId: null });
-      } else {
-        const permission = document.getElementById('header-location-permission');
-        if (permission) permission.hidden = false;
-      }
-      return;
-    }
-    const useLocation = event.target.closest('#header-use-location');
-    if (useLocation) {
-      const state = getCurrentLocation();
-      useLocation.disabled = true;
-      try {
-        const approximate = await requestUserLocation(state.cityId);
-        changeLocation({ ...state, ...approximate, mode: 'nearby', selectedAreaId: null });
-      } catch {
-        useLocation.disabled = false;
-        showToast('Не удалось получить местоположение. Можно искать по городу или выбрать район вручную.');
-      }
-      return;
-    }
-    if (cityMenu && !event.target.closest('.city-picker')) closeCityMenu();
   });
-  document.addEventListener('change', event => {
-    const area = event.target.closest('#header-area');
-    if (area?.value) changeLocation({ cityId: getCurrentLocation().cityId, mode: 'manual', selectedAreaId: area.value });
-  });
-  document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && !document.getElementById('city-menu')?.hidden) closeCityMenu();
-  });
-  document.addEventListener('location:changed', refreshLocationUi);
   document.addEventListener('error', event => {
     if (event.target instanceof HTMLImageElement && !event.target.src.endsWith('/assets/placeholder.svg')) event.target.src = './assets/placeholder.svg';
   }, true);

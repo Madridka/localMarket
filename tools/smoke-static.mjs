@@ -42,15 +42,13 @@ try {
       throw new Error(`${route}: ${count} cards; expected ${expected ?? 'between 1 and 79'}`);
     }
     if (!html.includes(heading)) throw new Error(`${route}: heading ${heading} missing`);
-    if (route === 'index.html' && (html.includes('Рядом с вами') || html.includes('от центра'))) throw new Error('Default city mode incorrectly claims a nearby origin');
-    if (route.includes('city=moscow') && html.includes('Кировский район')) throw new Error('Moscow results leaked listings from Tomsk');
+    if (route === 'index.html' && !html.includes('Радиус поиска')) throw new Error('Location radius selector is missing');
     console.log(`${route}: ${count} cards`);
   }
   const detail = open('listing.html?id=38&city=tomsk');
   if (!detail.includes('Оперативная память') || !detail.includes('Характеристики') || !detail.includes('5600')) throw new Error('Listing detail is missing category path or attributes');
-  if (!detail.includes('Точное местоположение продавца скрыто') || detail.includes('от центра')) throw new Error('Listing detail is missing location privacy');
   const create = open('create.html');
-  if (!create.includes('category-picker__option') || !create.includes('Поиск категории') || !create.includes('listing-area')) throw new Error('Create form category or approximate location picker did not render');
+  if (!create.includes('category-picker__option') || !create.includes('Поиск категории') || !create.includes('listing-city')) throw new Error('Create form category or city picker did not render');
   const favorites = open('favorites.html');
   if (!favorites.includes('favorites-grid') || !favorites.includes('listing-card')) throw new Error('Favorites did not render');
   const profilePage = open('profile.html?id=1');

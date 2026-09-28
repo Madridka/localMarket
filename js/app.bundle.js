@@ -23,47 +23,22 @@ const locations = Object.freeze({
   moscow: { name: "Москва", genitive: "Москвы", dative: "Москве", prepositional: "Москве", regionId: "moscow", centerLat: 55.75, centerLng: 37.62 },
 });
 
-const locationAreas = Object.freeze({
-  tomsk: [
-    { id: 'kirovsky', name: 'Кировский район', instrumental: 'Кировским районом', centerLat: 56.462, centerLng: 84.948 },
-    { id: 'sovetsky', name: 'Советский район', instrumental: 'Советским районом', centerLat: 56.472, centerLng: 85.004 },
-    { id: 'oktyabrsky', name: 'Октябрьский район', instrumental: 'Октябрьским районом', centerLat: 56.515, centerLng: 85.035 },
-    { id: 'leninsky', name: 'Ленинский район', instrumental: 'Ленинским районом', centerLat: 56.505, centerLng: 84.925 },
-  ],
-  seversk: [
-    { id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 56.598, centerLng: 84.887 },
-    { id: 'sosnovka', name: 'Сосновка', instrumental: 'Сосновкой', centerLat: 56.62, centerLng: 84.91 },
-  ],
-  asino: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 57, centerLng: 86.14 }],
-  kolpashevo: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 58.32, centerLng: 82.903 }],
-  strezhevoy: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 60.733, centerLng: 77.588 }],
-  kedrovy: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 57.56, centerLng: 79.56 }],
-  melnikovo: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 56.55, centerLng: 84.08 }],
-  novosibirsk: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 55.03, centerLng: 82.92 }],
-  kemerovo: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 55.35, centerLng: 86.09 }],
-  krasnoyarsk: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 56.01, centerLng: 92.87 }],
-  moscow: [{ id: 'central', name: 'Центральный округ', instrumental: 'Центральным округом', centerLat: 55.75, centerLng: 37.62 }],
-});
-
 const cities = Object.values(locations).map(({ name }) => name);
 
 function seedListingLocation(cityName, id) {
   const cityEntry = Object.entries(locations).find(([, entry]) => entry.name === cityName);
   if (!cityEntry) return {};
   const [cityId, city] = cityEntry;
-  const areas = locationAreas[cityId] || [];
-  const area = areas[id % Math.max(areas.length, 1)] || { id: 'city', name: city.name, centerLat: city.centerLat, centerLng: city.centerLng };
   const angle = (id * 137.508) * Math.PI / 180;
-  const offsetKm = 0.15 + (id * 17 % 16) / 10;
+  const offsetKm = 0.15 + (id * 17 % 120) / 10;
   const northKm = Math.cos(angle) * offsetKm;
   const eastKm = Math.sin(angle) * offsetKm;
-  const centerLat = Number((area.centerLat + northKm / 111.32).toFixed(3));
-  const centerLng = Number((area.centerLng + eastKm / (111.32 * Math.cos(area.centerLat * Math.PI / 180))).toFixed(3));
+  const centerLat = Number((city.centerLat + northKm / 111.32).toFixed(3));
+  const centerLng = Number((city.centerLng + eastKm / (111.32 * Math.cos(city.centerLat * Math.PI / 180))).toFixed(3));
   return {
     cityId,
     regionId: city.regionId,
-    areaId: area.id,
-    publicAreaName: area.name,
+    publicAreaName: city.name,
     locationCell: { id: `${cityId}-seed-${id}`, centerLat, centerLng },
   };
 }
@@ -676,7 +651,7 @@ const seedChats = [
   },
 ];
 
-return { locations, locationAreas, cities, conditions, seedSellers, seedListings, seedReviews, seedChats };
+return { locations, cities, conditions, seedSellers, seedListings, seedReviews, seedChats };
 })();
 __market.categories = (() => {
 'use strict';
@@ -1910,18 +1885,17 @@ return { taxonomy, categories, getCategory, getCategoryById, getParentCategory, 
 })();
 __market.location = (() => {
 'use strict';
-const { locationAreas, locations } = __market.data;
+const { locations } = __market.data;
 const CITY_LOCATIONS = Object.freeze(Object.fromEntries(
   Object.entries(locations).map(([id, value]) => [id, Object.freeze({ id, ...value })]),
 ));
-const LOCATION_AREAS = Object.freeze(locationAreas);
-const MIN_NEARBY_RESULTS = 12;
-const IDEAL_NEARBY_RESULTS = 24;
+const RADIUS_OPTIONS = Object.freeze([5, 10, 25, 50, 100, 200]);
 
-const DEFAULT_CITY_ID = 'tomsk';
-const STORAGE_KEY = 'ryadom.location.v2';
-const LEGACY_STORAGE_KEY = 'ryadom.location.v1';
-const VALID_MODES = new Set(['city', 'nearby', 'manual']);
+const DEFAULT_CITY = 'tomsk';
+const DEFAULT_RADIUS = 25;
+const CITY_STORAGE_KEY = 'locationCity';
+const RADIUS_STORAGE_KEY = 'locationRadius';
+const LEGACY_STORAGE_KEYS = ['ryadom.location.v1', 'ryadom.location.v2'];
 let currentLocation = null;
 
 function coordinate(value, limit) {
@@ -1942,10 +1916,7 @@ function getCityLocation(value) {
   return CITY_LOCATIONS[key] || Object.values(CITY_LOCATIONS).find((city) => city.name.toLowerCase() === key) || null;
 }
 
-function getCityAreas(cityId) { return LOCATION_AREAS[cityId] || []; }
-function getAreaLocation(cityId, areaId) { return getCityAreas(cityId).find((area) => area.id === areaId) || null; }
-
-function createLocationCell(latitude, longitude, cityId = DEFAULT_CITY_ID) {
+function createLocationCell(latitude, longitude, cityId = DEFAULT_CITY) {
   const point = pointFrom({ latitude, longitude });
   if (!point) return null;
   const latStep = 0.006;
@@ -1957,11 +1928,6 @@ function createLocationCell(latitude, longitude, cityId = DEFAULT_CITY_ID) {
     centerLat: Number((latIndex * latStep).toFixed(3)),
     centerLng: Number((lngIndex * lngStep).toFixed(3)),
   };
-}
-
-function cellFrom(value, cityId = DEFAULT_CITY_ID) {
-  const point = pointFrom(value);
-  return point ? createLocationCell(point.latitude, point.longitude, cityId) : null;
 }
 
 function calculateDistance(latitude1, longitude1, latitude2, longitude2) {
@@ -1976,71 +1942,60 @@ function calculateDistance(latitude1, longitude1, latitude2, longitude2) {
   return 6371.0088 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function findNearestArea(cityId, cell) {
-  const point = pointFrom(cell);
-  if (!point) return null;
-  return getCityAreas(cityId)
-    .map((area) => ({ area, distance: calculateDistance(point.latitude, point.longitude, area.centerLat, area.centerLng) }))
-    .sort((a, b) => a.distance - b.distance)[0]?.area || null;
+function normalizeRadius(value) {
+  const radius = Number(value);
+  return RADIUS_OPTIONS.includes(radius) ? radius : DEFAULT_RADIUS;
 }
 
 function normalizeLocationState(input = {}) {
   const source = input instanceof URLSearchParams ? Object.fromEntries(input) : input || {};
-  const city = getCityLocation(source.cityId || source.city || source.selectedCity) || CITY_LOCATIONS[DEFAULT_CITY_ID];
-  const selectedAreaId = source.selectedAreaId || source.area || null;
-  const area = getAreaLocation(city.id, selectedAreaId);
-  const requestedMode = source.mode || source.locationMode || source.location || 'city';
-  const locationCell = cellFrom(source.locationCell || source.cell, city.id);
-  let mode = VALID_MODES.has(requestedMode) ? requestedMode : 'city';
-  if (mode === 'nearby' && !locationCell) mode = 'city';
-  if (mode === 'manual' && !area) mode = 'city';
-  return {
-    cityId: city.id,
-    city: city.name,
-    mode,
-    locationCell: mode === 'manual' ? createLocationCell(area.centerLat, area.centerLng, city.id) : locationCell,
-    selectedAreaId: mode === 'manual' ? area.id : null,
-  };
+  const city = getCityLocation(source.city ?? source.cityId ?? source.selectedCity) || CITY_LOCATIONS[DEFAULT_CITY];
+  return { city: city.id, radius: normalizeRadius(source.radius) };
 }
 
 function readSelection() {
   try {
-    const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-    return value && typeof value === 'object' ? value : {};
-  } catch { return {}; }
+    return {
+      city: localStorage.getItem(CITY_STORAGE_KEY) || DEFAULT_CITY,
+      radius: localStorage.getItem(RADIUS_STORAGE_KEY) || DEFAULT_RADIUS,
+    };
+  } catch {
+    return { city: DEFAULT_CITY, radius: DEFAULT_RADIUS };
+  }
 }
 
 function getCurrentLocation() {
-  if (currentLocation) return { ...currentLocation, locationCell: currentLocation.locationCell ? { ...currentLocation.locationCell } : null };
+  if (currentLocation) return { ...currentLocation };
   const stored = readSelection();
   const params = typeof location === 'undefined' ? new URLSearchParams() : new URLSearchParams(location.search);
   currentLocation = normalizeLocationState({
-    ...stored,
-    cityId: params.get('city') || stored.cityId,
-    mode: params.get('area') ? 'manual' : params.get('location') || stored.mode || 'city',
-    selectedAreaId: params.get('area') || stored.selectedAreaId,
+    city: params.get('city') || stored.city,
+    radius: params.get('radius') || stored.radius,
   });
-  return getCurrentLocation();
+  return { ...currentLocation };
 }
 
 function setCurrentLocation(input) {
   currentLocation = normalizeLocationState(input);
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(currentLocation));
-    localStorage.removeItem(LEGACY_STORAGE_KEY);
+    localStorage.setItem(CITY_STORAGE_KEY, CITY_LOCATIONS[currentLocation.city].name);
+    localStorage.setItem(RADIUS_STORAGE_KEY, String(currentLocation.radius));
+    LEGACY_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
   } catch { /* Browsing still works when storage is unavailable. */ }
-  return getCurrentLocation();
+  return { ...currentLocation };
 }
 
 function getDistanceOrigin(input = getCurrentLocation()) {
   const state = normalizeLocationState(input);
-  if (state.locationCell) return { latitude: state.locationCell.centerLat, longitude: state.locationCell.centerLng, mode: state.mode, cityId: state.cityId };
-  const city = CITY_LOCATIONS[state.cityId];
-  return { latitude: city.centerLat, longitude: city.centerLng, mode: 'city', cityId: city.id };
+  const city = CITY_LOCATIONS[state.city];
+  return { latitude: city.centerLat, longitude: city.centerLng, city: city.id };
 }
 
 function listingDistanceKm(listing, input = getCurrentLocation()) {
-  const listingPoint = pointFrom(listing?.locationCell);
+  const listingCity = getCityLocation(listing?.cityId || listing?.city);
+  const listingPoint = pointFrom(listing?.locationCell) || (listingCity
+    ? { latitude: listingCity.centerLat, longitude: listingCity.centerLng }
+    : null);
   if (!listingPoint) return null;
   const origin = getDistanceOrigin(input);
   return calculateDistance(origin.latitude, origin.longitude, listingPoint.latitude, listingPoint.longitude);
@@ -2048,90 +2003,31 @@ function listingDistanceKm(listing, input = getCurrentLocation()) {
 
 function matchesLocation(listing, input = getCurrentLocation()) {
   const state = normalizeLocationState(input);
-  return getCityLocation(listing?.cityId || listing?.city)?.id === state.cityId;
+  const distance = listingDistanceKm(listing, state);
+  return distance !== null && distance <= state.radius;
 }
 
-function formatApproximateDistance(distanceKm) {
-  const km = Number(distanceKm);
-  if (!Number.isFinite(km) || km < 0) return '';
-  if (km < 0.3) return '< 300 м';
-  if (km < 0.75) return '≈ 500 м';
-  if (km < 1.5) return '≈ 1 км';
-  if (km < 3.5) return '≈ 2 км';
-  if (km < 7) return '≈ 5 км';
-  if (km < 10) return '7–10 км';
-  if (km < 15) return '≈ 10 км';
-  return 'дальше 10 км';
-}
-
-function formatDistanceValue(km) { return formatApproximateDistance(km); }
-
-function formatListingLocation(listing, input = getCurrentLocation(), detail = false) {
-  const state = normalizeLocationState(input);
+function formatListingLocation(listing) {
   const city = getCityLocation(listing?.cityId || listing?.city);
-  const areaName = listing?.publicAreaName || city?.name || 'Местоположение не указано';
-  if (state.mode === 'city' || city?.id !== state.cityId) return areaName;
-  const formatted = formatApproximateDistance(listingDistanceKm(listing, state));
-  return formatted ? `${areaName} · ${formatted}${detail && state.mode === 'nearby' ? ' от вас' : ''}` : areaName;
+  return listing?.publicAreaName || city?.name || 'Местоположение не указано';
 }
 
 function locationTitle(input = getCurrentLocation()) {
   const state = normalizeLocationState(input);
-  if (state.mode === 'nearby') return 'Рядом с вами';
-  if (state.mode === 'manual') {
-    const area = getAreaLocation(state.cityId, state.selectedAreaId);
-    return `Рядом с ${area?.instrumental || area?.name || state.city}`;
-  }
-  return `В ${CITY_LOCATIONS[state.cityId].prepositional || state.city}`;
+  const city = CITY_LOCATIONS[state.city];
+  return `Объявления в радиусе ${state.radius} км от ${city.genitive || city.name}`;
 }
 
-function locationIntro(input = getCurrentLocation()) {
-  return normalizeLocationState(input).mode === 'city' ? `Объявления только из города ${normalizeLocationState(input).city}` : 'То, что можно забрать неподалёку';
-}
-
+function locationIntro() { return ''; }
 function distanceSortLabel() { return 'Сначала ближайшие'; }
 
-function relevanceScore(listing, query) {
-  const words = String(query || '').toLocaleLowerCase('ru').split(/\s+/).filter(Boolean);
-  const haystack = `${listing.title || ''} ${listing.description || ''}`.toLocaleLowerCase('ru');
-  return words.reduce((score, word) => score + (haystack.includes(word) ? 1 : 0), 0);
-}
-
-function getAdaptiveNearbyResults(listings, origin, query = '') {
-  const state = normalizeLocationState(origin);
-  const ranked = listings.map((listing) => ({ listing, distance: listingDistanceKm(listing, state), relevance: relevanceScore(listing, query) }))
-    .sort((a, b) => b.relevance - a.relevance || (a.distance ?? Infinity) - (b.distance ?? Infinity) || new Date(b.listing.createdAt) - new Date(a.listing.createdAt));
-  const group = (min, max) => ranked.filter((item) => item.distance !== null && item.distance >= min && item.distance < max).map((item) => item.listing);
-  const veryClose = group(0, 1);
-  const nearby = veryClose.length < MIN_NEARBY_RESULTS ? group(1, 3) : [];
-  const notFar = veryClose.length + nearby.length < MIN_NEARBY_RESULTS ? group(3, 7) : [];
-  const localIds = new Set([...veryClose, ...nearby, ...notFar].map((item) => String(item.id)));
-  const cityFallback = ranked.filter((item) => !localIds.has(String(item.listing.id))).map((item) => item.listing);
-  return { veryClose, nearby, notFar, cityFallback };
-}
-
-function requestUserLocation(cityId = getCurrentLocation().cityId) {
-  return new Promise((resolve, reject) => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation?.getCurrentPosition) return reject(new Error('Геолокация недоступна'));
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const locationCell = createLocationCell(position.coords.latitude, position.coords.longitude, cityId);
-        if (locationCell) resolve({ locationCell });
-        else reject(new Error('Не удалось определить примерное местоположение'));
-      },
-      (error) => reject(error),
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
-    );
-  });
-}
-
-return { CITY_LOCATIONS, LOCATION_AREAS, MIN_NEARBY_RESULTS, IDEAL_NEARBY_RESULTS, getCityLocation, getCityAreas, getAreaLocation, createLocationCell, calculateDistance, findNearestArea, normalizeLocationState, getCurrentLocation, setCurrentLocation, getDistanceOrigin, listingDistanceKm, matchesLocation, formatApproximateDistance, formatDistanceValue, formatListingLocation, locationTitle, locationIntro, distanceSortLabel, getAdaptiveNearbyResults, requestUserLocation };
+return { CITY_LOCATIONS, RADIUS_OPTIONS, getCityLocation, createLocationCell, calculateDistance, normalizeLocationState, getCurrentLocation, setCurrentLocation, getDistanceOrigin, listingDistanceKm, matchesLocation, formatListingLocation, locationTitle, locationIntro, distanceSortLabel };
 })();
 __market.common = (() => {
 'use strict';
 const { conditions, seedListings, seedSellers, seedChats } = __market.data;
 const { getCategory: findCategory, isLeafCategory, searchCategories, getCategoryPath } = __market.categories;
-const { CITY_LOCATIONS, createLocationCell, findNearestArea, formatListingLocation, getAreaLocation, getCityAreas, getCityLocation, getCurrentLocation, requestUserLocation, setCurrentLocation,  } = __market.location;
+const { CITY_LOCATIONS, createLocationCell, formatListingLocation, getCityLocation, getCurrentLocation,  } = __market.location;
 const KEY = {
   listings: 'ryadom.listings.v1',
   favorites: 'ryadom.favorites.v1',
@@ -2228,19 +2124,16 @@ function migrateListingLocation(listing) {
   const existingCell = listing.locationCell
     ? createLocationCell(listing.locationCell.centerLat, listing.locationCell.centerLng, city.id)
     : null;
-  const fallbackAreas = getCityAreas(city.id);
-  const fallbackArea = getAreaLocation(city.id, listing.areaId) || fallbackAreas[Number(listing.id || 0) % Math.max(fallbackAreas.length, 1)] || null;
-  const locationCell = existingCell || rawPoint || (fallbackArea ? createLocationCell(fallbackArea.centerLat, fallbackArea.centerLng, city.id) : null);
-  const nearestArea = getAreaLocation(city.id, listing.areaId) || findNearestArea(city.id, locationCell) || fallbackArea;
+  const locationCell = existingCell || rawPoint || createLocationCell(city.centerLat, city.centerLng, city.id);
   const migrated = {
     ...listing,
     cityId: city.id,
     city: city.name,
     regionId: city.regionId,
-    areaId: nearestArea?.id || null,
-    publicAreaName: listing.publicAreaName || nearestArea?.name || city.name,
+    publicAreaName: city.name,
     locationCell,
   };
+  delete migrated.areaId;
   delete migrated.latitude;
   delete migrated.longitude;
   delete migrated.address;
@@ -2456,47 +2349,14 @@ function showToast(message) {
 
 function refreshLocationUi(refreshCards = true) {
   const state = getCurrentLocation();
-  const city = CITY_LOCATIONS[state.cityId];
-  const cityButton = document.getElementById('header-city-button');
-  const cityName = cityButton?.querySelector('[data-header-city-name]');
+  const city = CITY_LOCATIONS[state.city];
+  const cityName = document.querySelector('[data-header-city-name]');
   if (cityName) cityName.textContent = city.name;
-  const current = document.querySelector('.city-menu__current');
-  if (current) current.textContent = city.name;
-  document.querySelectorAll('[data-header-location-mode]').forEach((button) => {
-    const active = button.dataset.headerLocationMode === (state.mode === 'manual' ? 'nearby' : state.mode);
-    button.classList.toggle('is-active', active);
-    button.setAttribute('aria-pressed', String(active));
-    if (button.dataset.headerLocationMode === 'city') button.textContent = `По ${city.dative || city.name}`;
-  });
-  document.querySelectorAll('[data-location-city]').forEach((button) => {
-    button.setAttribute('aria-current', String(button.dataset.locationCity === state.cityId));
-  });
-  const areaSelect = document.getElementById('header-area');
-  if (areaSelect) {
-    areaSelect.innerHTML = `<option value="">Выбрать район</option>${getCityAreas(state.cityId).map((area) => `<option value="${escapeHtml(area.id)}">${escapeHtml(area.name)}</option>`).join('')}`;
-    areaSelect.value = state.selectedAreaId || '';
-  }
-  const permission = document.getElementById('header-location-permission');
-  if (permission && state.mode !== 'city') permission.hidden = true;
   if (refreshCards) document.querySelectorAll('[data-location-meta]').forEach((element) => {
     const id = element.closest('[data-listing-id]')?.dataset.listingId;
     const listing = id ? getListingById(id) : null;
     if (listing) element.textContent = formatDistance(listing);
   });
-}
-
-function closeCityMenu() {
-  const menu = document.getElementById('city-menu');
-  const button = document.getElementById('header-city-button');
-  if (menu) menu.hidden = true;
-  if (button) button.setAttribute('aria-expanded', 'false');
-}
-
-function changeLocation(input) {
-  const next = setCurrentLocation(input);
-  refreshLocationUi();
-  document.dispatchEvent(new CustomEvent('location:changed', { detail: { location: next } }));
-  closeCityMenu();
 }
 
 function renderShell(activePage = '') {
@@ -2512,20 +2372,7 @@ function renderShell(activePage = '') {
         <div id="recent-searches" class="search-suggestions" hidden></div>
       </form>
       <div class="header-actions">
-        <div class="city-picker"><button class="header-city" id="header-city-button" type="button" aria-expanded="false" aria-controls="city-menu">${icon('pin', 18)}<span data-header-city-name>${escapeHtml(getCurrentLocation().city)}</span>${icon('chevron', 16)}</button>
-          <div class="city-menu" id="city-menu" hidden>
-            <p class="city-menu__heading">Где искать</p>
-            <strong class="city-menu__current">${escapeHtml(getCurrentLocation().city)}</strong>
-            <div class="location-mode-switch location-mode-switch--header" role="group" aria-label="Режим поиска">
-              <button type="button" data-header-location-mode="nearby" aria-pressed="false">Рядом</button>
-              <button type="button" data-header-location-mode="city" aria-pressed="false">По ${escapeHtml(CITY_LOCATIONS[getCurrentLocation().cityId].dative || getCurrentLocation().city)}</button>
-            </div>
-            <div class="location-permission" id="header-location-permission" hidden><p>Разрешите определить примерное местоположение.</p><button type="button" class="button button--primary" id="header-use-location">Использовать моё местоположение</button><label for="header-area">Или выберите район</label><select id="header-area"></select><p>Точная позиция не будет показана другим.</p></div>
-            <button class="city-menu__change" id="city-change-button" type="button" aria-expanded="false" aria-controls="city-options">Другой город</button>
-            <div class="city-menu__cities" id="city-options" hidden>${Object.values(CITY_LOCATIONS).map(city => `<button type="button" data-location-city="${city.id}" aria-current="${city.id === getCurrentLocation().cityId}">${escapeHtml(city.name)}</button>`).join('')}</div>
-            <p class="city-menu__status" id="city-menu-status" role="status" hidden></p>
-          </div>
-        </div>
+        <span class="header-location">${icon('pin', 18)}<span data-header-city-name>${escapeHtml(CITY_LOCATIONS[getCurrentLocation().city].name)}</span></span>
         <a class="header-icon" href="favorites.html" aria-label="Избранное" title="Избранное">${icon('heart', 21)}</a>
         <a class="header-icon" href="messages.html" aria-label="Сообщения" title="Сообщения">${icon('chat', 21)}</a>
         <a class="header-profile" href="profile.html">Профиль</a>
@@ -2544,64 +2391,10 @@ function renderShell(activePage = '') {
     ];
     mobile.innerHTML = links.map(([key, href, symbol, label]) => `<a href="${href}" class="${activePage === key ? 'is-active' : ''}" ${activePage === key ? 'aria-current="page"' : ''}>${icon(symbol, 21)}<span>${label}</span></a>`).join('');
   }
-  document.addEventListener('click', async event => {
+  document.addEventListener('click', event => {
     const favorite = event.target.closest('[data-favorite-id]');
     if (favorite) { event.preventDefault(); toggleFavorite(favorite.dataset.favoriteId); return; }
-    const cityButton = event.target.closest('#header-city-button');
-    const cityMenu = document.getElementById('city-menu');
-    if (cityButton && cityMenu) {
-      cityMenu.hidden = !cityMenu.hidden;
-      cityButton.setAttribute('aria-expanded', String(!cityMenu.hidden));
-      return;
-    }
-    const cityChange = event.target.closest('#city-change-button');
-    if (cityChange) {
-      const options = document.getElementById('city-options');
-      options.hidden = !options.hidden;
-      cityChange.setAttribute('aria-expanded', String(!options.hidden));
-      return;
-    }
-    const cityOption = event.target.closest('[data-location-city]');
-    if (cityOption) {
-      changeLocation({ cityId: cityOption.dataset.locationCity, mode: 'city' });
-      return;
-    }
-    const modeButton = event.target.closest('[data-header-location-mode]');
-    if (modeButton) {
-      const state = getCurrentLocation();
-      if (modeButton.dataset.headerLocationMode === 'city') {
-        changeLocation({ ...state, mode: 'city', selectedAreaId: null });
-      } else if (state.locationCell) {
-        changeLocation({ ...state, mode: 'nearby', selectedAreaId: null });
-      } else {
-        const permission = document.getElementById('header-location-permission');
-        if (permission) permission.hidden = false;
-      }
-      return;
-    }
-    const useLocation = event.target.closest('#header-use-location');
-    if (useLocation) {
-      const state = getCurrentLocation();
-      useLocation.disabled = true;
-      try {
-        const approximate = await requestUserLocation(state.cityId);
-        changeLocation({ ...state, ...approximate, mode: 'nearby', selectedAreaId: null });
-      } catch {
-        useLocation.disabled = false;
-        showToast('Не удалось получить местоположение. Можно искать по городу или выбрать район вручную.');
-      }
-      return;
-    }
-    if (cityMenu && !event.target.closest('.city-picker')) closeCityMenu();
   });
-  document.addEventListener('change', event => {
-    const area = event.target.closest('#header-area');
-    if (area?.value) changeLocation({ cityId: getCurrentLocation().cityId, mode: 'manual', selectedAreaId: area.value });
-  });
-  document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && !document.getElementById('city-menu')?.hidden) closeCityMenu();
-  });
-  document.addEventListener('location:changed', refreshLocationUi);
   document.addEventListener('error', event => {
     if (event.target instanceof HTMLImageElement && !event.target.src.endsWith('/assets/placeholder.svg')) event.target.src = './assets/placeholder.svg';
   }, true);
@@ -2615,8 +2408,8 @@ function __run_catalog() {
 'use strict';
 const { conditions } = __market.data;
 const { categories: rootCategories, getCategory, getCategoryParent, getCategoryPath, getCategorySidebarState, getDescendantCategoryIds,  } = __market.categories;
-const { addRecentSearch, escapeHtml, getListings, getRecentSearches, getSavedSearches, icon, listingCard, refreshLocationUi, renderShell, showToast, toggleSavedSearch,  } = __market.common;
-const { CITY_LOCATIONS, distanceSortLabel, getAdaptiveNearbyResults, getCityAreas, getCurrentLocation, listingDistanceKm, locationIntro, locationTitle, matchesLocation, normalizeLocationState, requestUserLocation, setCurrentLocation,  } = __market.location;
+const { addRecentSearch, escapeHtml, getListings, getRecentSearches, getSavedSearches, icon, listingCard, refreshLocationUi, renderShell, toggleSavedSearch,  } = __market.common;
+const { CITY_LOCATIONS, distanceSortLabel, getCurrentLocation, listingDistanceKm, locationIntro, locationTitle, matchesLocation, normalizeLocationState, setCurrentLocation,  } = __market.location;
 renderShell('index');
 
 const form = document.getElementById('filter-form');
@@ -2639,7 +2432,6 @@ document.getElementById('condition-options').innerHTML = conditions.map(conditio
 function stateFromUrl() {
   const params = new URLSearchParams(location.search);
   const current = getCurrentLocation();
-  const cityId = params.get('city') || current.cityId;
   return {
     query: params.get('q') || '',
     category: params.get('category') || '',
@@ -2647,31 +2439,21 @@ function stateFromUrl() {
     max: params.get('max') || '',
     conditions: (params.get('condition') || '').split(',').filter(Boolean),
     location: normalizeLocationState({
-      cityId,
-      mode: params.get('area') ? 'manual' : params.get('location') || (cityId === current.cityId ? current.mode : 'city'),
-      selectedAreaId: params.get('area') || (cityId === current.cityId ? current.selectedAreaId : null),
-      locationCell: cityId === current.cityId ? current.locationCell : null,
+      city: params.get('city') || current.city,
+      radius: params.get('radius') || current.radius,
     }),
     sort: params.get('sort') || 'recommended',
   };
 }
 
 function stateFromForm() {
-  const current = getCurrentLocation();
-  const cityId = form.elements.city.value || current.cityId;
   return {
     query: searchInput.value.trim(),
     category: categoryInput.value,
     min: form.elements.min.value,
     max: form.elements.max.value,
     conditions: [...form.querySelectorAll('[name="condition"]:checked')].map(input => input.value),
-    location: normalizeLocationState({
-      ...current,
-      cityId,
-      mode: cityId === current.cityId ? current.mode : 'city',
-      selectedAreaId: cityId === current.cityId ? current.selectedAreaId : null,
-      locationCell: cityId === current.cityId ? current.locationCell : null,
-    }),
+    location: normalizeLocationState({ city: form.elements.city.value, radius: form.elements.radius.value }),
     sort: sortSelect.value,
   };
 }
@@ -2682,7 +2464,8 @@ function setFormState(state) {
   categoryInput.value = getCategory(state.category)?.id || '';
   form.elements.min.value = state.min || '';
   form.elements.max.value = state.max || '';
-  form.elements.city.value = selectedLocation.cityId;
+  form.elements.city.value = selectedLocation.city;
+  form.elements.radius.value = String(selectedLocation.radius);
   sortSelect.value = state.sort || 'recommended';
   if (!sortSelect.value) sortSelect.value = 'recommended';
   form.querySelectorAll('[name="condition"]').forEach(input => {
@@ -2742,9 +2525,8 @@ function updateUrl(state, mode = 'replace') {
   if (state.min) url.searchParams.set('min', state.min);
   if (state.max) url.searchParams.set('max', state.max);
   if (state.conditions.length) url.searchParams.set('condition', state.conditions.join(','));
-  url.searchParams.set('city', state.location.cityId);
-  if (state.location.mode === 'nearby') url.searchParams.set('location', 'nearby');
-  if (state.location.mode === 'manual') url.searchParams.set('area', state.location.selectedAreaId);
+  url.searchParams.set('city', state.location.city);
+  url.searchParams.set('radius', String(state.location.radius));
   if (state.sort !== 'recommended') url.searchParams.set('sort', state.sort);
   if (url.href !== location.href) history[mode === 'push' ? 'pushState' : 'replaceState'](null, '', url);
 }
@@ -2827,38 +2609,9 @@ function updateSaveButton(state) {
 }
 
 function renderLocationControls(locationState) {
-  const city = CITY_LOCATIONS[locationState.cityId] || CITY_LOCATIONS.tomsk;
-  document.getElementById('location-current-city').textContent = city.name;
-  const area = document.getElementById('filter-area');
-  area.innerHTML = `<option value="">Выбрать район</option>${getCityAreas(city.id).map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`).join('')}`;
-  area.value = locationState.selectedAreaId || '';
-  document.querySelectorAll('[data-location-mode]').forEach((button) => {
-    const activeMode = locationState.mode === 'manual' ? 'nearby' : locationState.mode;
-    const active = button.dataset.locationMode === activeMode;
-    button.classList.toggle('is-active', active);
-    button.setAttribute('aria-pressed', String(active));
-    if (button.dataset.locationMode === 'city') button.textContent = `По ${city.dative || city.name}`;
-  });
-  if (locationState.mode !== 'city') document.getElementById('location-permission').hidden = true;
-  const useLocation = document.getElementById('use-my-location');
-  useLocation.disabled = false;
-  useLocation.textContent = 'Использовать моё местоположение';
-  sortSelect.querySelector('[value="distance"]').textContent = distanceSortLabel(locationState);
-}
-
-function renderNearbyFeed(listings, state) {
-  const groups = getAdaptiveNearbyResults(listings, state.location, state.query);
-  const localCount = groups.veryClose.length + groups.nearby.length + groups.notFar.length;
-  const sections = [
-    ['Совсем рядом', groups.veryClose],
-    ['Рядом', groups.nearby],
-    ['Недалеко', groups.notFar],
-    [`Ещё варианты в ${CITY_LOCATIONS[state.location.cityId].prepositional}`, groups.cityFallback],
-  ].filter(([, items]) => items.length);
-  const fallbackNote = localCount === 0 && groups.cityFallback.length
-    ? `<div class="nearby-fallback"><strong>Поблизости ничего не нашли.</strong><p>Есть ${groups.cityFallback.length} подходящих ${plural(groups.cityFallback.length)} в ${CITY_LOCATIONS[state.location.cityId].prepositional}.</p></div>`
-    : '';
-  return `${fallbackNote}${sections.map(([title, items]) => `<section class="nearby-group"><h2>${escapeHtml(title)}</h2><div class="listing-grid">${items.map((listing) => listingCard(listing, state.location)).join('')}</div></section>`).join('')}`;
+  form.elements.city.value = locationState.city;
+  form.elements.radius.value = String(locationState.radius);
+  sortSelect.querySelector('[value="distance"]').textContent = distanceSortLabel();
 }
 
 function renderListings(mode = 'replace') {
@@ -2877,11 +2630,8 @@ function renderListings(mode = 'replace') {
   const intro = document.getElementById('catalog-intro');
   intro.textContent = category || state.query ? '' : locationIntro(state.location);
   intro.hidden = !intro.textContent;
-  grid.classList.toggle('nearby-feed', state.location.mode !== 'city');
   grid.innerHTML = listings.length
-    ? state.location.mode === 'city'
-      ? listings.map(listing => listingCard(listing, state.location)).join('')
-      : renderNearbyFeed(listings, state)
+    ? listings.map(listing => listingCard(listing, state.location)).join('')
     : `<div class="empty-state"><div class="empty-state__icon">${icon('search', 30)}</div><h2>Ничего не нашли</h2><p>Попробуйте изменить категорию или другие фильтры.</p><button class="button button--secondary" type="button" id="empty-reset">Сбросить фильтры</button></div>`;
   refreshLocationUi(false);
 }
@@ -2917,7 +2667,7 @@ function renderSuggestions() {
   const recent = getRecentSearches();
   const saved = getSavedSearches();
   if (!recent.length && !saved.length) { suggestions.hidden = true; return; }
-  suggestions.innerHTML = `${recent.length ? `<div class="suggestion-heading">Недавние поиски</div>${recent.map(query => `<button type="button" data-recent-query="${escapeHtml(query)}">${icon('search', 15)} ${escapeHtml(query)}</button>`).join('')}` : ''}${saved.length ? `<div class="suggestion-heading">Сохранённые поиски</div>${saved.map((item, index) => `<button type="button" data-saved-index="${index}">${icon('heart', 15)} ${escapeHtml(item.query || getCategory(item.category)?.name || CITY_LOCATIONS[item.location?.cityId]?.name || item.city || 'Все объявления')}</button>`).join('')}` : ''}`;
+  suggestions.innerHTML = `${recent.length ? `<div class="suggestion-heading">Недавние поиски</div>${recent.map(query => `<button type="button" data-recent-query="${escapeHtml(query)}">${icon('search', 15)} ${escapeHtml(query)}</button>`).join('')}` : ''}${saved.length ? `<div class="suggestion-heading">Сохранённые поиски</div>${saved.map((item, index) => `<button type="button" data-saved-index="${index}">${icon('heart', 15)} ${escapeHtml(item.query || getCategory(item.category)?.name || CITY_LOCATIONS[item.location?.city]?.name || item.city || 'Все объявления')}</button>`).join('')}` : ''}`;
   suggestions.hidden = false;
 }
 
@@ -2974,15 +2724,8 @@ document.addEventListener('click', event => { if (!event.target.closest('.header
 sortSelect.addEventListener('change', () => renderListings());
 form.addEventListener('submit', event => { event.preventDefault(); renderListings(); closeFilters(); });
 form.addEventListener('change', event => {
-  if (event.target.name === 'city') {
-    setCurrentLocation({ cityId: event.target.value, mode: 'city' });
-    setFormState({ ...stateFromForm(), location: getCurrentLocation() });
-    renderListings('push');
-    return;
-  }
-  if (event.target.name === 'area' && event.target.value) {
-    setCurrentLocation({ cityId: form.elements.city.value, mode: 'manual', selectedAreaId: event.target.value });
-    setFormState({ ...stateFromForm(), location: getCurrentLocation() });
+  if (event.target.name === 'city' || event.target.name === 'radius') {
+    setCurrentLocation({ city: form.elements.city.value, radius: form.elements.radius.value });
     renderListings('push');
     return;
   }
@@ -2992,47 +2735,6 @@ form.addEventListener('input', event => {
   if (event.target.type === 'radio' || event.target.tagName === 'SELECT') return;
   clearTimeout(filterTimer);
   filterTimer = setTimeout(() => renderListings(), 180);
-});
-document.addEventListener('location:changed', event => {
-  const current = stateFromForm();
-  setFormState({ ...current, location: event.detail.location });
-  renderListings('push');
-});
-document.getElementById('location-change-city').addEventListener('click', event => {
-  const select = document.getElementById('filter-city');
-  select.hidden = !select.hidden;
-  event.currentTarget.setAttribute('aria-expanded', String(!select.hidden));
-  if (!select.hidden) select.focus();
-});
-form.querySelector('.location-mode-switch').addEventListener('click', event => {
-  const button = event.target.closest('[data-location-mode]');
-  if (!button) return;
-  const current = getCurrentLocation();
-  if (button.dataset.locationMode === 'city') {
-    setCurrentLocation({ ...current, mode: 'city', selectedAreaId: null });
-    setFormState({ ...stateFromForm(), location: getCurrentLocation() });
-    renderListings('push');
-  } else if (current.locationCell) {
-    setCurrentLocation({ ...current, mode: 'nearby', selectedAreaId: null });
-    setFormState({ ...stateFromForm(), location: getCurrentLocation() });
-    renderListings('push');
-  } else {
-    document.getElementById('location-permission').hidden = false;
-  }
-});
-document.getElementById('use-my-location').addEventListener('click', async event => {
-  const button = event.currentTarget;
-  button.disabled = true;
-  try {
-    const current = getCurrentLocation();
-    const approximate = await requestUserLocation(current.cityId);
-    setCurrentLocation({ ...current, ...approximate, mode: 'nearby', selectedAreaId: null });
-    setFormState({ ...stateFromForm(), location: getCurrentLocation() });
-    renderListings('push');
-  } catch {
-    button.disabled = false;
-    showToast('Не удалось получить местоположение. Можно продолжить искать по городу или выбрать район вручную.');
-  }
 });
 document.getElementById('reset-filters').addEventListener('click', resetFilters);
 grid.addEventListener('click', event => { if (event.target.closest('#empty-reset')) resetFilters(); });
@@ -3063,7 +2765,7 @@ function __run_create_listing() {
 const { conditions } = __market.data;
 const { categories, getCategory, getCategoryAttributes, getCategoryChildren, getCategoryPath, isLeafCategory, searchCategories,  } = __market.categories;
 const { addListing, escapeHtml, getCurrentUser, getListingById, renderShell, showToast, updateListing,  } = __market.common;
-const { CITY_LOCATIONS, createLocationCell, findNearestArea, getAreaLocation, getCityAreas, getCityLocation, getCurrentLocation, requestUserLocation,  } = __market.location;
+const { CITY_LOCATIONS, createLocationCell, getCityLocation, getCurrentLocation,  } = __market.location;
 renderShell('create');
 
 const form = document.querySelector('#create-form');
@@ -3086,12 +2788,10 @@ const editId = new URLSearchParams(window.location.search).get('edit');
 const editing = editId ? getListingById(editId) : null;
 let currentCategoryId = null;
 let processingPhotos = false;
-let listingLocationCell = null;
 
 fillSelect('listing-condition', conditions, 'Выберите состояние');
 fillSelect('listing-city', Object.values(CITY_LOCATIONS), 'Выберите город');
-document.querySelector('#listing-city').value = getCurrentLocation().cityId || getCityLocation(getCurrentUser().city)?.id || 'tomsk';
-renderAreaOptions();
+document.querySelector('#listing-city').value = getCurrentLocation().city || getCityLocation(getCurrentUser().city)?.id || 'tomsk';
 renderCategoryPicker();
 
 if (editId) {
@@ -3107,9 +2807,6 @@ if (editId) {
     form.elements.condition.value = editing.condition || '';
     form.elements.price.value = editing.price ?? '';
     form.elements.cityId.value = editing.cityId || getCityLocation(editing.city)?.id || 'tomsk';
-    renderAreaOptions();
-    form.elements.areaId.value = editing.areaId || '';
-    listingLocationCell = editing.locationCell || null;
     (editing.images || []).forEach((dataUrl, index) => photos.push({ name: `Фото ${index + 1}`, dataUrl }));
     renderPhotos();
     if (getCategory(editing.categoryId)) selectCategory(editing.categoryId, editing.attributes || {});
@@ -3138,28 +2835,6 @@ categoryBack.addEventListener('click', () => {
 });
 document.addEventListener('click', (event) => {
   if (!event.target.closest('#category-search-results') && event.target !== categorySearch) categorySearchResults.hidden = true;
-});
-
-form.elements.cityId.addEventListener('change', () => {
-  listingLocationCell = null;
-  renderAreaOptions();
-});
-form.elements.areaId.addEventListener('change', () => { listingLocationCell = null; });
-document.getElementById('listing-use-location').addEventListener('click', async event => {
-  const button = event.currentTarget;
-  button.disabled = true;
-  try {
-    const cityId = form.elements.cityId.value;
-    const approximate = await requestUserLocation(cityId);
-    listingLocationCell = approximate.locationCell;
-    const area = findNearestArea(cityId, listingLocationCell);
-    if (area) form.elements.areaId.value = area.id;
-    button.textContent = 'Примерное местоположение выбрано ✓';
-    clearError('areaId');
-  } catch {
-    button.disabled = false;
-    showToast('Не удалось получить местоположение. Выберите район вручную.');
-  }
 });
 
 photoDropzone.addEventListener('click', () => photoInput.click());
@@ -3209,9 +2884,7 @@ form.addEventListener('submit', (event) => {
   const data = new FormData(form);
   const cityId = String(data.get('cityId')).trim();
   const city = getCityLocation(cityId);
-  const areaId = String(data.get('areaId')).trim();
-  const area = getAreaLocation(cityId, areaId);
-  const locationCell = listingLocationCell || (area ? createLocationCell(area.centerLat, area.centerLng, cityId) : null);
+  const locationCell = city ? createLocationCell(city.centerLat, city.centerLng, cityId) : null;
   const payload = {
     title: String(data.get('title')).trim(),
     categoryId: String(data.get('categoryId')),
@@ -3224,8 +2897,7 @@ form.addEventListener('submit', (event) => {
     cityId,
     city: city?.name || '',
     regionId: city?.regionId || '',
-    areaId,
-    publicAreaName: area?.name || city?.name || '',
+    publicAreaName: city?.name || '',
     locationCell,
     images: photos.map((photo) => photo.dataUrl),
   };
@@ -3315,11 +2987,6 @@ function fillSelect(id, entries, placeholder) {
   select.innerHTML = `<option value="">${placeholder}</option>${options.join('')}`;
 }
 
-function renderAreaOptions() {
-  const cityId = form.elements.cityId.value;
-  fillSelect('listing-area', getCityAreas(cityId), 'Выберите район');
-}
-
 async function addPhotos(fileList) {
   if (processingPhotos) return;
   const files = [...fileList];
@@ -3402,7 +3069,6 @@ function validate() {
     condition: values.condition ? '' : 'Выберите состояние',
     price: values.price === '' || values.price === undefined || Number(values.price) < 0 || !Number.isFinite(Number(values.price)) ? 'Укажите цену от 0 ₽' : '',
     cityId: values.cityId ? '' : 'Выберите город',
-    areaId: values.areaId ? '' : 'Выберите район или используйте примерное местоположение',
   };
   Object.entries(errors).forEach(([field, message]) => setError(field, message));
   const firstError = Object.keys(errors).find((field) => errors[field]);
@@ -3459,12 +3125,12 @@ if (!listing) {
         <p class="listing-kicker">${escapeHtml(category?.name || 'Объявление')} · ${escapeHtml(formatDate(listing.createdAt))}</p>
         <div class="listing-price">${formatPrice(listing.price)}</div>
         <h1 class="listing-title">${escapeHtml(listing.title)}</h1>
-        <div class="listing-facts"><div><span>Состояние</span><strong>${escapeHtml(condition?.label || 'Не указано')}</strong></div><div><span>Местоположение</span><strong>${icon('pin', 17)} <span data-detail-location>${escapeHtml(formatDistance(listing, undefined, true))}</span></strong><small>Точное местоположение продавца скрыто.</small></div></div>
+        <div class="listing-facts"><div><span>Состояние</span><strong>${escapeHtml(condition?.label || 'Не указано')}</strong></div><div><span>Местоположение</span><strong>${icon('pin', 17)} <span data-detail-location>${escapeHtml(formatDistance(listing, undefined, true))}</span></strong></div></div>
         <div class="listing-actions">${ownListing ? `<a class="button button--primary" href="create.html?edit=${encodeURIComponent(listing.id)}">Редактировать объявление</a><span class="own-listing-note">Это ваше объявление</span>` : `<a class="button button--primary" href="messages.html?listing=${encodeURIComponent(listing.id)}">${icon('chat', 19)} Написать продавцу</a><button class="button button--secondary" type="button" id="open-offer">Предложить цену</button>`}<button class="button button--text detail-favorite ${isFavorite(listing.id) ? 'is-active' : ''}" type="button" data-favorite-id="${escapeHtml(listing.id)}" aria-pressed="${isFavorite(listing.id)}" aria-label="${isFavorite(listing.id) ? 'Убрать из избранного' : 'Добавить в избранное'}">${icon('heart', 20)} <span>В избранное</span></button></div>
         <section class="seller-card" aria-label="Продавец"><div class="seller-card__top"><div class="seller-avatar">${escapeHtml((seller?.name || 'П').slice(0, 1))}</div><div><strong>${escapeHtml(seller?.name || 'Продавец')}</strong><p>${seller?.rating ? `★ ${seller.rating} · ${seller.reviewsCount} отзывов` : 'Новый продавец'}</p></div></div><div class="seller-card__details"><span>${seller?.verifiedPhone ? '✓ Телефон подтверждён' : 'Пользователь площадки'}</span><span>${escapeHtml(seller?.responseTime || 'Отвечает в течение дня')}</span></div><a href="profile.html?id=${encodeURIComponent(seller?.id ?? 0)}">Профиль продавца ${icon('arrowRight', 16)}</a></section>
       </aside>
     </div>
-    <section class="description-section"><h2>Описание</h2><p>${escapeHtml(listing.description).replace(/\n/g, '<br>')}</p>${attributeDefinitions.some((attribute) => listing.attributes?.[attribute.id] !== undefined && listing.attributes[attribute.id] !== '') ? `<div class="listing-attributes"><h3>Характеристики</h3><dl>${attributeDefinitions.filter((attribute) => listing.attributes?.[attribute.id] !== undefined && listing.attributes[attribute.id] !== '').map((attribute) => `<div><dt>${escapeHtml(attribute.label)}</dt><dd>${escapeHtml(listing.attributes[attribute.id])}</dd></div>`).join('')}</dl></div>` : ''}<p class="location-privacy-note">Точное местоположение продавца скрыто. Договоритесь о месте встречи в чате.</p><div class="description-meta"><span>${icon('pin', 17)} <span data-detail-location>${escapeHtml(formatDistance(listing, undefined, true))}</span></span><span>${Number(listing.views || 0) + 1} просмотров</span></div></section>
+    <section class="description-section"><h2>Описание</h2><p>${escapeHtml(listing.description).replace(/\n/g, '<br>')}</p>${attributeDefinitions.some((attribute) => listing.attributes?.[attribute.id] !== undefined && listing.attributes[attribute.id] !== '') ? `<div class="listing-attributes"><h3>Характеристики</h3><dl>${attributeDefinitions.filter((attribute) => listing.attributes?.[attribute.id] !== undefined && listing.attributes[attribute.id] !== '').map((attribute) => `<div><dt>${escapeHtml(attribute.label)}</dt><dd>${escapeHtml(listing.attributes[attribute.id])}</dd></div>`).join('')}</dl></div>` : ''}<div class="description-meta"><span>${icon('pin', 17)} <span data-detail-location>${escapeHtml(formatDistance(listing, undefined, true))}</span></span><span>${Number(listing.views || 0) + 1} просмотров</span></div></section>
     ${viewedBefore.length ? `<section class="recently-viewed"><div class="section-heading"><h2>Вы недавно смотрели</h2><a href="index.html">Все объявления ${icon('arrowRight', 16)}</a></div><div class="listing-grid">${viewedBefore.map(getListingById).filter(Boolean).slice(0, 4).map(listingCard).join('')}</div></section>` : ''}`;
 
   let activePhoto = 0;

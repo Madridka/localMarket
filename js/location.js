@@ -1,16 +1,15 @@
-import { locationAreas, locations } from './data.js';
+import { locations } from './data.js';
 
 export const CITY_LOCATIONS = Object.freeze(Object.fromEntries(
   Object.entries(locations).map(([id, value]) => [id, Object.freeze({ id, ...value })]),
 ));
-export const LOCATION_AREAS = Object.freeze(locationAreas);
-export const MIN_NEARBY_RESULTS = 12;
-export const IDEAL_NEARBY_RESULTS = 24;
+export const RADIUS_OPTIONS = Object.freeze([5, 10, 25, 50, 100, 200]);
 
-const DEFAULT_CITY_ID = 'tomsk';
-const STORAGE_KEY = 'ryadom.location.v2';
-const LEGACY_STORAGE_KEY = 'ryadom.location.v1';
-const VALID_MODES = new Set(['city', 'nearby', 'manual']);
+const DEFAULT_CITY = 'tomsk';
+const DEFAULT_RADIUS = 25;
+const CITY_STORAGE_KEY = 'locationCity';
+const RADIUS_STORAGE_KEY = 'locationRadius';
+const LEGACY_STORAGE_KEYS = ['ryadom.location.v1', 'ryadom.location.v2'];
 let currentLocation = null;
 
 function coordinate(value, limit) {
@@ -31,10 +30,7 @@ export function getCityLocation(value) {
   return CITY_LOCATIONS[key] || Object.values(CITY_LOCATIONS).find((city) => city.name.toLowerCase() === key) || null;
 }
 
-export function getCityAreas(cityId) { return LOCATION_AREAS[cityId] || []; }
-export function getAreaLocation(cityId, areaId) { return getCityAreas(cityId).find((area) => area.id === areaId) || null; }
-
-export function createLocationCell(latitude, longitude, cityId = DEFAULT_CITY_ID) {
+export function createLocationCell(latitude, longitude, cityId = DEFAULT_CITY) {
   const point = pointFrom({ latitude, longitude });
   if (!point) return null;
   const latStep = 0.006;
@@ -46,11 +42,6 @@ export function createLocationCell(latitude, longitude, cityId = DEFAULT_CITY_ID
     centerLat: Number((latIndex * latStep).toFixed(3)),
     centerLng: Number((lngIndex * lngStep).toFixed(3)),
   };
-}
-
-function cellFrom(value, cityId = DEFAULT_CITY_ID) {
-  const point = pointFrom(value);
-  return point ? createLocationCell(point.latitude, point.longitude, cityId) : null;
 }
 
 export function calculateDistance(latitude1, longitude1, latitude2, longitude2) {
@@ -65,71 +56,60 @@ export function calculateDistance(latitude1, longitude1, latitude2, longitude2) 
   return 6371.0088 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export function findNearestArea(cityId, cell) {
-  const point = pointFrom(cell);
-  if (!point) return null;
-  return getCityAreas(cityId)
-    .map((area) => ({ area, distance: calculateDistance(point.latitude, point.longitude, area.centerLat, area.centerLng) }))
-    .sort((a, b) => a.distance - b.distance)[0]?.area || null;
+function normalizeRadius(value) {
+  const radius = Number(value);
+  return RADIUS_OPTIONS.includes(radius) ? radius : DEFAULT_RADIUS;
 }
 
 export function normalizeLocationState(input = {}) {
   const source = input instanceof URLSearchParams ? Object.fromEntries(input) : input || {};
-  const city = getCityLocation(source.cityId || source.city || source.selectedCity) || CITY_LOCATIONS[DEFAULT_CITY_ID];
-  const selectedAreaId = source.selectedAreaId || source.area || null;
-  const area = getAreaLocation(city.id, selectedAreaId);
-  const requestedMode = source.mode || source.locationMode || source.location || 'city';
-  const locationCell = cellFrom(source.locationCell || source.cell, city.id);
-  let mode = VALID_MODES.has(requestedMode) ? requestedMode : 'city';
-  if (mode === 'nearby' && !locationCell) mode = 'city';
-  if (mode === 'manual' && !area) mode = 'city';
-  return {
-    cityId: city.id,
-    city: city.name,
-    mode,
-    locationCell: mode === 'manual' ? createLocationCell(area.centerLat, area.centerLng, city.id) : locationCell,
-    selectedAreaId: mode === 'manual' ? area.id : null,
-  };
+  const city = getCityLocation(source.city ?? source.cityId ?? source.selectedCity) || CITY_LOCATIONS[DEFAULT_CITY];
+  return { city: city.id, radius: normalizeRadius(source.radius) };
 }
 
 function readSelection() {
   try {
-    const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-    return value && typeof value === 'object' ? value : {};
-  } catch { return {}; }
+    return {
+      city: localStorage.getItem(CITY_STORAGE_KEY) || DEFAULT_CITY,
+      radius: localStorage.getItem(RADIUS_STORAGE_KEY) || DEFAULT_RADIUS,
+    };
+  } catch {
+    return { city: DEFAULT_CITY, radius: DEFAULT_RADIUS };
+  }
 }
 
 export function getCurrentLocation() {
-  if (currentLocation) return { ...currentLocation, locationCell: currentLocation.locationCell ? { ...currentLocation.locationCell } : null };
+  if (currentLocation) return { ...currentLocation };
   const stored = readSelection();
   const params = typeof location === 'undefined' ? new URLSearchParams() : new URLSearchParams(location.search);
   currentLocation = normalizeLocationState({
-    ...stored,
-    cityId: params.get('city') || stored.cityId,
-    mode: params.get('area') ? 'manual' : params.get('location') || stored.mode || 'city',
-    selectedAreaId: params.get('area') || stored.selectedAreaId,
+    city: params.get('city') || stored.city,
+    radius: params.get('radius') || stored.radius,
   });
-  return getCurrentLocation();
+  return { ...currentLocation };
 }
 
 export function setCurrentLocation(input) {
   currentLocation = normalizeLocationState(input);
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(currentLocation));
-    localStorage.removeItem(LEGACY_STORAGE_KEY);
+    localStorage.setItem(CITY_STORAGE_KEY, CITY_LOCATIONS[currentLocation.city].name);
+    localStorage.setItem(RADIUS_STORAGE_KEY, String(currentLocation.radius));
+    LEGACY_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
   } catch { /* Browsing still works when storage is unavailable. */ }
-  return getCurrentLocation();
+  return { ...currentLocation };
 }
 
 export function getDistanceOrigin(input = getCurrentLocation()) {
   const state = normalizeLocationState(input);
-  if (state.locationCell) return { latitude: state.locationCell.centerLat, longitude: state.locationCell.centerLng, mode: state.mode, cityId: state.cityId };
-  const city = CITY_LOCATIONS[state.cityId];
-  return { latitude: city.centerLat, longitude: city.centerLng, mode: 'city', cityId: city.id };
+  const city = CITY_LOCATIONS[state.city];
+  return { latitude: city.centerLat, longitude: city.centerLng, city: city.id };
 }
 
 export function listingDistanceKm(listing, input = getCurrentLocation()) {
-  const listingPoint = pointFrom(listing?.locationCell);
+  const listingCity = getCityLocation(listing?.cityId || listing?.city);
+  const listingPoint = pointFrom(listing?.locationCell) || (listingCity
+    ? { latitude: listingCity.centerLat, longitude: listingCity.centerLng }
+    : null);
   if (!listingPoint) return null;
   const origin = getDistanceOrigin(input);
   return calculateDistance(origin.latitude, origin.longitude, listingPoint.latitude, listingPoint.longitude);
@@ -137,79 +117,20 @@ export function listingDistanceKm(listing, input = getCurrentLocation()) {
 
 export function matchesLocation(listing, input = getCurrentLocation()) {
   const state = normalizeLocationState(input);
-  return getCityLocation(listing?.cityId || listing?.city)?.id === state.cityId;
+  const distance = listingDistanceKm(listing, state);
+  return distance !== null && distance <= state.radius;
 }
 
-export function formatApproximateDistance(distanceKm) {
-  const km = Number(distanceKm);
-  if (!Number.isFinite(km) || km < 0) return '';
-  if (km < 0.3) return '< 300 м';
-  if (km < 0.75) return '≈ 500 м';
-  if (km < 1.5) return '≈ 1 км';
-  if (km < 3.5) return '≈ 2 км';
-  if (km < 7) return '≈ 5 км';
-  if (km < 10) return '7–10 км';
-  if (km < 15) return '≈ 10 км';
-  return 'дальше 10 км';
-}
-
-export function formatDistanceValue(km) { return formatApproximateDistance(km); }
-
-export function formatListingLocation(listing, input = getCurrentLocation(), detail = false) {
-  const state = normalizeLocationState(input);
+export function formatListingLocation(listing) {
   const city = getCityLocation(listing?.cityId || listing?.city);
-  const areaName = listing?.publicAreaName || city?.name || 'Местоположение не указано';
-  if (state.mode === 'city' || city?.id !== state.cityId) return areaName;
-  const formatted = formatApproximateDistance(listingDistanceKm(listing, state));
-  return formatted ? `${areaName} · ${formatted}${detail && state.mode === 'nearby' ? ' от вас' : ''}` : areaName;
+  return listing?.publicAreaName || city?.name || 'Местоположение не указано';
 }
 
 export function locationTitle(input = getCurrentLocation()) {
   const state = normalizeLocationState(input);
-  if (state.mode === 'nearby') return 'Рядом с вами';
-  if (state.mode === 'manual') {
-    const area = getAreaLocation(state.cityId, state.selectedAreaId);
-    return `Рядом с ${area?.instrumental || area?.name || state.city}`;
-  }
-  return `В ${CITY_LOCATIONS[state.cityId].prepositional || state.city}`;
+  const city = CITY_LOCATIONS[state.city];
+  return `Объявления в радиусе ${state.radius} км от ${city.genitive || city.name}`;
 }
 
-export function locationIntro(input = getCurrentLocation()) {
-  return normalizeLocationState(input).mode === 'city' ? `Объявления только из города ${normalizeLocationState(input).city}` : 'То, что можно забрать неподалёку';
-}
-
+export function locationIntro() { return ''; }
 export function distanceSortLabel() { return 'Сначала ближайшие'; }
-
-function relevanceScore(listing, query) {
-  const words = String(query || '').toLocaleLowerCase('ru').split(/\s+/).filter(Boolean);
-  const haystack = `${listing.title || ''} ${listing.description || ''}`.toLocaleLowerCase('ru');
-  return words.reduce((score, word) => score + (haystack.includes(word) ? 1 : 0), 0);
-}
-
-export function getAdaptiveNearbyResults(listings, origin, query = '') {
-  const state = normalizeLocationState(origin);
-  const ranked = listings.map((listing) => ({ listing, distance: listingDistanceKm(listing, state), relevance: relevanceScore(listing, query) }))
-    .sort((a, b) => b.relevance - a.relevance || (a.distance ?? Infinity) - (b.distance ?? Infinity) || new Date(b.listing.createdAt) - new Date(a.listing.createdAt));
-  const group = (min, max) => ranked.filter((item) => item.distance !== null && item.distance >= min && item.distance < max).map((item) => item.listing);
-  const veryClose = group(0, 1);
-  const nearby = veryClose.length < MIN_NEARBY_RESULTS ? group(1, 3) : [];
-  const notFar = veryClose.length + nearby.length < MIN_NEARBY_RESULTS ? group(3, 7) : [];
-  const localIds = new Set([...veryClose, ...nearby, ...notFar].map((item) => String(item.id)));
-  const cityFallback = ranked.filter((item) => !localIds.has(String(item.listing.id))).map((item) => item.listing);
-  return { veryClose, nearby, notFar, cityFallback };
-}
-
-export function requestUserLocation(cityId = getCurrentLocation().cityId) {
-  return new Promise((resolve, reject) => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation?.getCurrentPosition) return reject(new Error('Геолокация недоступна'));
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const locationCell = createLocationCell(position.coords.latitude, position.coords.longitude, cityId);
-        if (locationCell) resolve({ locationCell });
-        else reject(new Error('Не удалось определить примерное местоположение'));
-      },
-      (error) => reject(error),
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
-    );
-  });
-}

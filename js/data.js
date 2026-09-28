@@ -18,47 +18,22 @@ export const locations = Object.freeze({
   moscow: { name: "Москва", genitive: "Москвы", dative: "Москве", prepositional: "Москве", regionId: "moscow", centerLat: 55.75, centerLng: 37.62 },
 });
 
-export const locationAreas = Object.freeze({
-  tomsk: [
-    { id: 'kirovsky', name: 'Кировский район', instrumental: 'Кировским районом', centerLat: 56.462, centerLng: 84.948 },
-    { id: 'sovetsky', name: 'Советский район', instrumental: 'Советским районом', centerLat: 56.472, centerLng: 85.004 },
-    { id: 'oktyabrsky', name: 'Октябрьский район', instrumental: 'Октябрьским районом', centerLat: 56.515, centerLng: 85.035 },
-    { id: 'leninsky', name: 'Ленинский район', instrumental: 'Ленинским районом', centerLat: 56.505, centerLng: 84.925 },
-  ],
-  seversk: [
-    { id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 56.598, centerLng: 84.887 },
-    { id: 'sosnovka', name: 'Сосновка', instrumental: 'Сосновкой', centerLat: 56.62, centerLng: 84.91 },
-  ],
-  asino: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 57, centerLng: 86.14 }],
-  kolpashevo: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 58.32, centerLng: 82.903 }],
-  strezhevoy: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 60.733, centerLng: 77.588 }],
-  kedrovy: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 57.56, centerLng: 79.56 }],
-  melnikovo: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 56.55, centerLng: 84.08 }],
-  novosibirsk: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 55.03, centerLng: 82.92 }],
-  kemerovo: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 55.35, centerLng: 86.09 }],
-  krasnoyarsk: [{ id: 'central', name: 'Центральный район', instrumental: 'Центральным районом', centerLat: 56.01, centerLng: 92.87 }],
-  moscow: [{ id: 'central', name: 'Центральный округ', instrumental: 'Центральным округом', centerLat: 55.75, centerLng: 37.62 }],
-});
-
 export const cities = Object.values(locations).map(({ name }) => name);
 
 function seedListingLocation(cityName, id) {
   const cityEntry = Object.entries(locations).find(([, entry]) => entry.name === cityName);
   if (!cityEntry) return {};
   const [cityId, city] = cityEntry;
-  const areas = locationAreas[cityId] || [];
-  const area = areas[id % Math.max(areas.length, 1)] || { id: 'city', name: city.name, centerLat: city.centerLat, centerLng: city.centerLng };
   const angle = (id * 137.508) * Math.PI / 180;
-  const offsetKm = 0.15 + (id * 17 % 16) / 10;
+  const offsetKm = 0.15 + (id * 17 % 120) / 10;
   const northKm = Math.cos(angle) * offsetKm;
   const eastKm = Math.sin(angle) * offsetKm;
-  const centerLat = Number((area.centerLat + northKm / 111.32).toFixed(3));
-  const centerLng = Number((area.centerLng + eastKm / (111.32 * Math.cos(area.centerLat * Math.PI / 180))).toFixed(3));
+  const centerLat = Number((city.centerLat + northKm / 111.32).toFixed(3));
+  const centerLng = Number((city.centerLng + eastKm / (111.32 * Math.cos(city.centerLat * Math.PI / 180))).toFixed(3));
   return {
     cityId,
     regionId: city.regionId,
-    areaId: area.id,
-    publicAreaName: area.name,
+    publicAreaName: city.name,
     locationCell: { id: `${cityId}-seed-${id}`, centerLat, centerLng },
   };
 }
