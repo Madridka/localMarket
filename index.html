@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="ru">
+<<<<<<< HEAD
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -11,4 +12,52 @@
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
+=======
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>Рядом — локальные объявления</title>
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+  <div id="site-header"></div>
+  <main class="page-container catalog-page">
+    <nav class="category-nav" id="category-nav" aria-label="Категории объявлений"></nav>
+    <div class="catalog-layout">
+      <div class="filter-backdrop" id="filter-backdrop" hidden></div>
+      <aside class="filter-sidebar" id="filter-sidebar" aria-label="Фильтры объявлений">
+        <div class="filter-sidebar__heading"><h2>Фильтры</h2><button class="filter-close" id="filter-close" type="button" aria-label="Закрыть фильтры">×</button></div>
+        <form id="filter-form">
+          <div class="filter-section category-filter">
+            <h3>Категории</h3>
+            <input id="filter-category" name="category" type="hidden" value="">
+            <nav id="category-tree" class="category-tree" aria-label="Категории объявлений"></nav>
+          </div>
+          <div class="filter-section"><span class="filter-label">Цена, ₽</span><div class="price-fields"><label class="visually-hidden" for="filter-min">Цена от</label><input id="filter-min" name="min" inputmode="numeric" type="number" min="0" placeholder="От"><label class="visually-hidden" for="filter-max">Цена до</label><input id="filter-max" name="max" inputmode="numeric" type="number" min="0" placeholder="До"></div></div>
+          <fieldset class="filter-section"><legend>Состояние</legend><div id="condition-options" class="filter-options"></div></fieldset>
+          <div class="filter-section location-filter">
+            <h3>Местоположение</h3>
+            <div class="location-filter__field"><label for="filter-city">Город</label><select id="filter-city" name="city"></select></div>
+            <div class="location-filter__field"><label for="filter-radius">Радиус поиска</label><select id="filter-radius" name="radius"><option value="5">5 км</option><option value="10">10 км</option><option value="25" selected>25 км</option><option value="50">50 км</option><option value="100">100 км</option><option value="200">200 км</option></select></div>
+          </div>
+          <div class="filter-actions"><button class="button button--primary" type="submit">Показать результаты</button><button class="button button--text" id="reset-filters" type="button">Сбросить фильтры</button></div>
+        </form>
+      </aside>
+      <section class="catalog-content" aria-labelledby="catalog-title">
+        <div class="catalog-heading"><div><nav id="catalog-breadcrumbs" class="breadcrumb catalog-breadcrumbs" aria-label="Путь категории"></nav><h1 id="catalog-title">Объявления в Томской области</h1><p id="catalog-count" class="catalog-count" aria-live="polite"></p><p id="catalog-intro" class="catalog-intro"></p></div></div>
+        <div class="catalog-toolbar"><div class="catalog-toolbar__left"><button class="filter-toggle button button--secondary" id="filter-toggle" type="button" aria-expanded="false" aria-controls="filter-sidebar">Фильтры</button></div><div class="catalog-toolbar__right"><button type="button" class="save-search-button" id="save-search">♡ <span>Сохранить поиск</span></button><label for="sort-select">Сортировать:</label><select class="sort-select" id="sort-select"><option value="recommended">Рекомендуемые</option><option value="distance">Сначала ближайшие</option><option value="newest">Сначала новые</option><option value="price-asc">Сначала дешевле</option><option value="price-desc">Сначала дороже</option></select></div></div>
+        <div id="listing-grid" class="listing-grid" aria-live="polite"></div>
+      </section>
+    </div>
+  </main>
+  <div id="toast-root" class="toast-container"></div>
+  <nav id="mobile-nav" aria-label="Мобильная навигация"></nav>
+  <script defer src="js/app.bundle.js"></script>
+</body>
+>>>>>>> 173df8f6e58e67fc5ef8fe6ab28bc0d17928f475
 </html>

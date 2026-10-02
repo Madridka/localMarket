@@ -18,7 +18,11 @@ export const locations = Object.freeze({
   kemerovo: { name: "Кемерово", genitive: "Кемерова", dative: "Кемерову", prepositional: "Кемерове", regionId: "kemerovo-oblast", centerLat: 55.35, centerLng: 86.09 },
   krasnoyarsk: { name: "Красноярск", genitive: "Красноярска", dative: "Красноярску", prepositional: "Красноярске", regionId: "krasnoyarsk-krai", centerLat: 56.01, centerLng: 92.87 },
   moscow: { name: "Москва", genitive: "Москвы", dative: "Москве", prepositional: "Москве", regionId: "moscow", centerLat: 55.75, centerLng: 37.62 },
+<<<<<<< HEAD:src/data/seed.ts
 }) satisfies Readonly<Record<string, Omit<City, 'id'>>>;
+=======
+});
+>>>>>>> 173df8f6e58e67fc5ef8fe6ab28bc0d17928f475:js/data.js
 
 export const cities = Object.values(locations).map(({ name }) => name);
 
@@ -28,7 +32,11 @@ function seedListingLocation(cityName: string, id: number): Pick<Listing, 'cityI
   const cityEntry = Object.entries(locations).find(([, entry]) => entry.name === cityName) ?? ['tomsk', locations.tomsk] as const;
   const [cityId, city] = cityEntry;
   const angle = (id * 137.508) * Math.PI / 180;
+<<<<<<< HEAD:src/data/seed.ts
   const offsetKm = 0.4 + (id * 17 % 80) / 10;
+=======
+  const offsetKm = 0.15 + (id * 17 % 120) / 10;
+>>>>>>> 173df8f6e58e67fc5ef8fe6ab28bc0d17928f475:js/data.js
   const northKm = Math.cos(angle) * offsetKm;
   const eastKm = Math.sin(angle) * offsetKm;
   const centerLat = Number((city.centerLat + northKm / 111.32).toFixed(3));
@@ -36,7 +44,11 @@ function seedListingLocation(cityName: string, id: number): Pick<Listing, 'cityI
   return {
     cityId,
     regionId: city.regionId,
+<<<<<<< HEAD:src/data/seed.ts
     address: `ул. ${seedStreets[id % seedStreets.length]}, ${(id * 7) % 120 + 1}`,
+=======
+    publicAreaName: city.name,
+>>>>>>> 173df8f6e58e67fc5ef8fe6ab28bc0d17928f475:js/data.js
     locationCell: { id: `${cityId}-seed-${id}`, centerLat, centerLng },
   };
 }
