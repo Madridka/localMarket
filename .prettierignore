@@ -1,0 +1,6 @@
+dist
+node_modules
+coverage
+bun.lock
+src/data/taxonomy.ts
+src/data/seed.ts

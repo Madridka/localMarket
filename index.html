@@ -1,53 +1,14 @@
 <!doctype html>
 <html lang="ru">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#ffffff">
-  <title>Рядом — локальные объявления</title>
-  <link rel="stylesheet" href="css/reset.css">
-  <link rel="stylesheet" href="css/variables.css">
-  <link rel="stylesheet" href="css/styles.css">
-  <link rel="stylesheet" href="css/components.css">
-  <link rel="stylesheet" href="css/responsive.css">
-</head>
-<body>
-  <div id="site-header"></div>
-  <main class="page-container catalog-page">
-    <nav class="category-nav" id="category-nav" aria-label="Категории объявлений"></nav>
-    <div class="catalog-layout">
-      <div class="filter-backdrop" id="filter-backdrop" hidden></div>
-      <aside class="filter-sidebar" id="filter-sidebar" aria-label="Фильтры объявлений">
-        <div class="filter-sidebar__heading"><h2>Фильтры</h2><button class="filter-close" id="filter-close" type="button" aria-label="Закрыть фильтры">×</button></div>
-        <form id="filter-form">
-          <div class="filter-section category-filter">
-            <h3>Категории</h3>
-            <input id="filter-category" name="category" type="hidden" value="">
-            <nav id="category-tree" class="category-tree" aria-label="Категории объявлений"></nav>
-          </div>
-          <div class="filter-section"><span class="filter-label">Цена, ₽</span><div class="price-fields"><label class="visually-hidden" for="filter-min">Цена от</label><input id="filter-min" name="min" inputmode="numeric" type="number" min="0" placeholder="От"><label class="visually-hidden" for="filter-max">Цена до</label><input id="filter-max" name="max" inputmode="numeric" type="number" min="0" placeholder="До"></div></div>
-          <fieldset class="filter-section"><legend>Состояние</legend><div id="condition-options" class="filter-options"></div></fieldset>
-          <div class="filter-section location-filter">
-            <h3>Местоположение</h3>
-            <div class="location-city-row"><strong id="location-current-city">Томск</strong><button id="location-change-city" type="button" aria-expanded="false" aria-controls="filter-city">Другой город</button></div>
-            <label class="visually-hidden" for="filter-city">Выберите город</label><select id="filter-city" name="city" hidden></select>
-            <span class="location-mode-label">Где искать</span>
-            <div class="location-mode-switch" role="group" aria-label="Режим поиска"><button type="button" data-location-mode="nearby" aria-pressed="false">Рядом</button><button type="button" data-location-mode="city" aria-pressed="true">По Томску</button></div>
-            <div class="location-permission" id="location-permission" hidden><p>Чтобы находить объявления действительно рядом, разрешите определить приблизительное местоположение.</p><button class="button button--primary" id="use-my-location" type="button">Использовать моё местоположение</button><label for="filter-area">Или выберите район</label><select id="filter-area" name="area"></select></div>
-            <p class="location-privacy">Точное местоположение скрыто.</p>
-          </div>
-          <div class="filter-actions"><button class="button button--primary" type="submit">Показать результаты</button><button class="button button--text" id="reset-filters" type="button">Сбросить фильтры</button></div>
-        </form>
-      </aside>
-      <section class="catalog-content" aria-labelledby="catalog-title">
-        <div class="catalog-heading"><div><nav id="catalog-breadcrumbs" class="breadcrumb catalog-breadcrumbs" aria-label="Путь категории"></nav><h1 id="catalog-title">Объявления в Томской области</h1><p id="catalog-count" class="catalog-count" aria-live="polite"></p><p id="catalog-intro" class="catalog-intro"></p></div></div>
-        <div class="catalog-toolbar"><div class="catalog-toolbar__left"><button class="filter-toggle button button--secondary" id="filter-toggle" type="button" aria-expanded="false" aria-controls="filter-sidebar">Фильтры</button></div><div class="catalog-toolbar__right"><button type="button" class="save-search-button" id="save-search">♡ <span>Сохранить поиск</span></button><label for="sort-select">Сортировать:</label><select class="sort-select" id="sort-select"><option value="recommended">Рекомендуемые</option><option value="distance">Сначала ближайшие</option><option value="newest">Сначала новые</option><option value="price-asc">Сначала дешевле</option><option value="price-desc">Сначала дороже</option></select></div></div>
-        <div id="listing-grid" class="listing-grid" aria-live="polite"></div>
-      </section>
-    </div>
-  </main>
-  <div id="toast-root" class="toast-container"></div>
-  <nav id="mobile-nav" aria-label="Мобильная навигация"></nav>
-  <script defer src="js/app.bundle.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="description" content="Рядом — локальные объявления" />
+    <title>Рядом — локальные объявления</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
 </html>
